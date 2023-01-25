@@ -920,11 +920,13 @@ void usercontrol(void) {
     if (Controller1.ButtonB.pressing()){
       ExpansionPnuematics1.off();
       ExpansionPnuematics2.off();
+      Controller1.rumble(rumbleShort);
     }
 
     if (Controller1.ButtonY.pressing()){
       ExpansionPnuematics1.on();
       ExpansionPnuematics2.on();
+      Controller1.rumble(rumbleShort);
     }
 
     //---------------------------------------Catapult---------------------------------------//
