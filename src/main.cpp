@@ -935,7 +935,7 @@ void usercontrol(void) {
 
     //Cata Stop
     if (limitSwitchVar == true && limitSwitchCan >= 20) {
-      Controller1.rumble(rumbleLong);
+      Controller1.rumble("-");
       cataMoving = false;
       cataDown = true;
       limitSwitchCan = 0;
