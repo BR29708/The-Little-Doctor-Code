@@ -27,6 +27,7 @@ signature VisionSensor__BLUE_GOAL = signature (1, -3529, -1927, -2728, 6343, 115
 signature VisionSensor__RED_GOAL = signature (2, 9513, 10713, 10113, -2341, -1381, -1861, 2.5, 0);
 vision VisionSensor = vision (PORT16, 150, VisionSensor__BLUE_GOAL, VisionSensor__RED_GOAL);
 /*vex-vision-config:end*/
+led CataPistons = led(Brain.ThreeWirePort.D);
 
 // VEXcode generated functions
 // define variable for remote controller enable/disable

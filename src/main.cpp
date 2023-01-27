@@ -25,6 +25,7 @@
 // Gyro                 inertial      4               
 // Color                optical       17              
 // VisionSensor         vision        16              
+// CataPistons          led           D               
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
@@ -267,6 +268,11 @@ double turnkP = 0.004;
 double turnkI = 0.000000001; //0.00000000000000000001
 double turnkD = 0.0003;
 
+//driftPID Tuning Values
+double dkP = 0.02;
+double dkI = 0.00000000001;
+double dkD = 0.0003;
+
 int error; //Sensor Value - Desired Value : Position
 int prevError; //Position 20ms ago
 int der; //derivative : Speed
@@ -274,7 +280,10 @@ int totalError; //
 
 int ticks = 0;
 
-
+int driftError;
+int driftPrevError;
+int driftTotalError;
+int driftDer;
 
 void drivePID (int desiredValue){
 
@@ -293,8 +302,7 @@ void drivePID (int desiredValue){
     int leftMotorPosition = (LBMotor.position(degrees) + LFMotor.position(degrees) + LMMotor.position(degrees)) / 3;
     int rightMotorPosition = (RBMotor.position(degrees) + RFMotor.position(degrees) + RMMotor.position(degrees)) / 3;
     int averagePosition = (leftMotorPosition + rightMotorPosition) / 2;
-    int driftVal = heading - Gyro.orientation(yaw, degrees);
-    int motorDifference = driftVal / 2;
+    driftError = heading - Gyro.orientation(yaw, degrees);
 
     //potential
     error = averagePosition - desiredValue;
@@ -303,7 +311,16 @@ void drivePID (int desiredValue){
     //intergral
     totalError += error; 
 
-    double lateralMotorPower = (error * kP + der * kD + totalError * kI) * 80;//+ totalError * kI
+    //Drift Potential
+    driftError = Gyro.orientation(yaw, degrees) - heading;
+    //Drift Derivitive
+    driftDer = driftError - driftPrevError;
+    //Drift Integral
+    driftTotalError += driftError;
+
+    int motorDifference = (driftError * dkP + driftDer * dkD) * 50; //+ driftTotalError * dkI
+
+    double lateralMotorPower = (error * kP + der * kD) * 80; //+ totalError * kI
 
     LMMotor.spin(reverse, lateralMotorPower - motorDifference, voltageUnits::volt);
     LFMotor.spin(reverse, lateralMotorPower - motorDifference, voltageUnits::volt);
@@ -330,6 +347,7 @@ void drivePID (int desiredValue){
 
 
     prevError = error;
+    driftPrevError = driftError;
     vex::task::sleep(20);
 
     if (abs(error) < 15){
@@ -920,13 +938,13 @@ void usercontrol(void) {
     if (Controller1.ButtonB.pressing()){
       ExpansionPnuematics1.off();
       ExpansionPnuematics2.off();
-      Controller1.rumble(rumbleShort);
+      Controller1.rumble(".");
     }
 
     if (Controller1.ButtonY.pressing()){
       ExpansionPnuematics1.on();
       ExpansionPnuematics2.on();
-      Controller1.rumble(rumbleShort);
+      Controller1.rumble(".");
     }
 
     //---------------------------------------Catapult---------------------------------------//
