@@ -28,6 +28,10 @@ extern signature VisionSensor__SIG_6;
 extern signature VisionSensor__SIG_7;
 extern vision VisionSensor;
 extern led CataPistons;
+extern encoder EncoderL;
+extern encoder EncoderR;
+extern triport Expander13;
+extern encoder EncoderB;
 
 /**
  * Used to initialize code/tasks/devices added using tools in VEXcode Pro.

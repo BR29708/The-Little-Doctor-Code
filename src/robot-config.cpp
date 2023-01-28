@@ -8,6 +8,7 @@ using code = vision::code;
 brain  Brain;
 
 // VEXcode device constructors
+triport Expander13 = triport(PORT13);
 controller Controller1 = controller(primary);
 motor RMMotor = motor(PORT10, ratio18_1, false);
 motor RFMotor = motor(PORT9, ratio18_1, false);
@@ -28,6 +29,9 @@ signature VisionSensor__RED_GOAL = signature (2, 9513, 10713, 10113, -2341, -138
 vision VisionSensor = vision (PORT16, 150, VisionSensor__BLUE_GOAL, VisionSensor__RED_GOAL);
 /*vex-vision-config:end*/
 led CataPistons = led(Brain.ThreeWirePort.D);
+encoder EncoderL = encoder(Brain.ThreeWirePort.E);
+encoder EncoderR = encoder(Brain.ThreeWirePort.G);
+encoder EncoderB = encoder(Expander13.A);
 
 // VEXcode generated functions
 // define variable for remote controller enable/disable
