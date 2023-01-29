@@ -53,6 +53,42 @@ const double backOffset = 5; //Subject to change when we add tracking wheels, Di
 
 
 //--------------------------------Variables----------------------------------//
+//ODOMETRY Variables
+double globalX = 0; //Global X Coordinate of Robot
+double globalY = 0; //Global Y Coordinate of Robot
+
+float curLeft = 0; //Current Position of Left Encoder
+float curRight = 0; //Current Position of Right Encoder
+float curBack = 0; //Current Position of Back Encoder
+
+float lastLeft = 0; //Last Position of Left Encoder
+float lastRight = 0; //Last Position of Right Encoder
+float lastBack = 0; //Last Position of Back Encoder
+float lastGyroRadians; //Last Gyro Position (Radians)
+
+float deltaL = 0; //Change in Left Encoder
+float deltaR = 0; //Change in Right Encoder
+float deltaB = 0; //Change in Back Encoder
+
+float deltaTheta = 0; //Change in Arc Angle
+
+float deltaX = 0; //Change in X Position
+float deltaY = 0; //Change in X Position
+
+float deltaDistance; //Change in dstance moved
+float deltaDistanceSide; //Change in Side Distance
+double absoluteAngleOfMovement = 0; //Direction Of Movement
+
+float totalDistance = 0; //Tracks Total Distance traveled
+
+double targetX = 0; //Target X-Position
+double targetY = 0; //Target Y-Position
+double targetDeg = 0; //Target Degree
+double targetDistance = 0; //Straightest Path to Target 
+
+int stopTime = 0; //Used for isStopped Function
+
+
 //Auton Selection Vars
 bool redAuton = true;
 bool bothSides = true;
@@ -66,6 +102,120 @@ bool firingCata = false;
 //---------------------------------------------------------------------------//
 //--------------------------------Functions----------------------------------//
 //---------------------------------------------------------------------------//
+
+//--------------------------------Odometry/Math Functions----------------------------------//
+double degreesToInches(double ticks){ //Converts Encoder Ticks to Inches Traveled
+  return (ticks / 360) * 1.4 * TrackingCircumference;
+}
+
+double keepInRange (double n, double low, double high){ //Keeps input value (n) between two defined constraints
+  if (n > high){
+    n = high;
+  }
+  if (n < low){
+    n = low;
+  }
+  return n;
+}
+
+double distanceTo (double x1, double y1){ //Calculates Distance Between Current Location (GlobalX, GlobalY) and target points (x1, y1)
+  return sqrt(pow(globalX - x1, 2) + pow(globalY - y1, 2));
+}
+
+double getRightReading(){
+  return degreesToInches(EncoderR);
+}
+
+double getLeftReading(){
+  return degreesToInches(EncoderL);
+}
+
+double getBackReading(){
+  return degreesToInches(EncoderB);
+}
+
+bool isStopped(){ //Checks to see if Robot isn't moving: Makes sure it doens't run into walls (COULD ENCOUNTER PROBLEMS!)
+
+  if (fabs(deltaR) < 0.001 && fabs(deltaL) < 0.001){
+    stopTime += 1;
+  } else {
+    stopTime = 0;
+  }
+  if (stopTime == 50){
+    return true;
+  } else {
+    return false;
+  }
+
+}
+
+double getRobotRotation(){ //Gets robot orientation in degrees
+  return -Gyro.orientation(yaw, degrees); //Negative because of weird trig math, left is positive, right is negative
+}
+
+double getRobotRadians(){ //Gets robot orientation in radians
+  return getRobotRotation() * toRadians;
+}
+
+//Changes angle to make sure the shorter distance is traveled, ie if a the angle is more than 180 degrees, turn the other direction so it's faster
+double angleWrap(double angle){
+  double robotAngle = getRobotRotation();
+  while (angle > robotAngle + 180){ 
+    angle -= 360;
+  }
+  while (angle < robotAngle - 180){
+    angle += 360;
+  }
+
+  return angle; //return new angle
+}
+
+double getDegToPosition(double x, double y){ //Find Angle That points to the desired point
+
+  double relativeX = x - globalX;
+  double relativeY = y - globalY;
+
+  double degToPosition = toDegrees * atan2(relativeY, relativeX);
+  
+  degToPosition = angleWrap(degToPosition);
+
+  return degToPosition;
+
+}
+
+//Movement Functions
+
+void leftDrive(double power) {
+  LBMotor.spin(fwd, power, pct);
+  LMMotor.spin(fwd, power, pct);
+  LFMotor.spin(fwd, power, pct);
+}
+
+void rightDrive(double power){
+  RMMotor.spin(fwd, power, pct);
+  RFMotor.spin(fwd, power, pct);
+  RBMotor.spin(fwd, power, pct);
+}
+
+void drive(double power){
+  RMMotor.spin(fwd, power, pct);
+  RFMotor.spin(fwd, power, pct);
+  RBMotor.spin(fwd, power, pct);
+  LBMotor.spin(fwd, power, pct);
+  LMMotor.spin(fwd, power, pct);
+  LFMotor.spin(fwd, power, pct);
+}
+
+void stopDrive(double power){
+  RMMotor.stop(coast);
+  RBMotor.stop(coast);
+  RFMotor.stop(coast);
+  LMMotor.stop(coast);
+  LFMotor.stop(coast);
+  LBMotor.stop(coast);
+}
+
+
 
 
 //--------------------------------Auton Selection----------------------------------//
@@ -270,30 +420,160 @@ void ButtonPressed(){
 //---------------------------------------------------------------------------------------------------------//
 //---------------------------------------------------------------------------------------------------------//
 
-//Variables
+//--------------------------------PID for ODOM----------------------------------//
 
-//Encoder Values
-double dL;
-double dR;
-double dS;
+float prevError = 0;
+float totalError = 0;
+float der = 0;
+float heading = 0;
+
+float fwdPIDCycle(double targetDist, double maxSpeed){
+
+  float kP = 2;
+  float kI = 0.01;
+  float kD = 1;
+
+  float integralPowerLimit = 45 / kD;
+  float integralActiveZone = 10;
+  float errorThreshold = 0.5;
+
+  float speed = 0;
+  float error = targetDist;
+
+  if (error > errorThreshold){ //Check if error is over the threshold
+
+    if (fabs(error) < integralActiveZone){
+      totalError += error;
+    } else {
+      totalError = 0;
+    }
+    
+    totalError = keepInRange(totalError, -integralPowerLimit, integralPowerLimit);
+    der = error - prevError;
+
+    speed = kP * error + kI * totalError + kD * der;
+
+    speed = keepInRange(speed, -maxSpeed, maxSpeed);
+    
+    if (speed > 0 && speed < 2) {
+      speed = 2;
+    } if (speed < 0 && speed > -2) {
+      speed = -2;
+    }
 
 
 
-
-int ODOM(){
-
-
-  while (true) {    
-
-
-
-    vex::task::sleep(10);
-
+  } else {
+    totalError = 0;
+    der = 0;
+    speed = 0;
   }
 
-  return(0);
+  prevError = error;
+
+  return speed;
+
 
 }
+
+float turnPIDCycle(double targetDeg, double maxSpeed){
+
+  float kP = 2;
+  float kI = 0.01;
+  float kD = 1;
+
+  float integralPowerLimit = 45 / kD;
+  float integralActiveZone = 10;
+  float errorThreshold = 0.5;
+
+  float speed = 0;
+  float error = targetDeg - getRobotRotation();
+
+  if (error > errorThreshold){ //Check if error is over the threshold
+
+    if (fabs(error) < integralActiveZone){
+      totalError += error;
+    } else {
+      totalError = 0;
+    }
+    
+    totalError = keepInRange(totalError, -integralPowerLimit, integralPowerLimit);
+    der = error - prevError;
+
+    speed = kP * error + kI * totalError + kD * der;
+
+    speed = keepInRange(speed, -maxSpeed, maxSpeed);
+    
+    if (speed > 0 && speed < 2) {
+      speed = 2;
+    } if (speed < 0 && speed > -2) {
+      speed = -2;
+    }
+
+
+
+  } else {
+    totalError = 0;
+    der = 0;
+    speed = 0;
+  }
+  
+  prevError = error;
+
+  return speed;
+
+
+}
+
+float driftPID(double maxSpeed){
+
+  float kP = 2;
+  float kI = 0.01;
+  float kD = 1;
+
+  float integralPowerLimit = 45 / kD;
+  float integralActiveZone = 2;
+  float errorThreshold = 0;
+
+  float speed = 0;
+  float error = heading - getRobotRotation();
+
+  if (error != errorThreshold){ //Check if error is inequal to the threshold
+
+    if (fabs(error) < integralActiveZone){
+      totalError += error;
+    } else {
+      totalError = 0;
+    }
+    
+    totalError = keepInRange(totalError, -integralPowerLimit, integralPowerLimit);
+    der = error - prevError;
+
+    speed = kP * error + kI * totalError + kD * der;
+
+    speed = keepInRange(speed, -maxSpeed, maxSpeed);
+    
+    if (speed > 0 && speed < 2) {
+      speed = 1;
+    } if (speed < 0 && speed > -2) {
+      speed = -1;
+    }
+
+
+
+  } else {
+    totalError = 0;
+    der = 0;
+    speed = 0;
+  }
+  
+  prevError = error;
+
+  return speed;
+
+}
+
+
 
 
 //----------------------------------------------PID-------------------------------------------------------//
@@ -314,9 +594,6 @@ double dkI = 0.00000000001;
 double dkD = 0.0003;
 
 int error; //Sensor Value - Desired Value : Position
-int prevError; //Position 20ms ago
-int der; //derivative : Speed
-int totalError; //
 
 int ticks = 0;
 
