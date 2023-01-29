@@ -38,14 +38,18 @@
 using namespace vex;
 
 
-
-
-
-
 // A global instance of competition
 competition Competition;
 
-// define your global instances of motors and other devices here
+//Defining Constants for Odometry
+#define PI 3.14159265
+const double toRadians = PI / 180; //Converts to Radians
+const double toDegrees = 180 / PI; //Converts to Degrees
+const double TrackingCircumference = 4 * PI; //Calculates Tracking Wheel Circumference
+const double leftOffset = 5; //Subject to change when we add tracking wheels, Distance from Tracking Center to Left Tracking Wheel
+const double rightOffset = 5; //Subject to change when we add tracking wheels, Distance from Tracking Center to Right Tracking Wheel
+const double backOffset = 5; //Subject to change when we add tracking wheels, Distance from Tracking Center to Back Tracking Wheel
+
 
 
 //--------------------------------Variables----------------------------------//
