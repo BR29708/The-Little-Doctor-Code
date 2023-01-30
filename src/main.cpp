@@ -38,17 +38,57 @@
 using namespace vex;
 
 
-
-
-
-
 // A global instance of competition
 competition Competition;
 
-// define your global instances of motors and other devices here
+//Defining Constants for Odometry
+#define PI 3.14159265
+const double toRadians = PI / 180; //Converts to Radians
+const double toDegrees = 180 / PI; //Converts to Degrees
+const double TrackingCircumference = 4 * PI; //Calculates Tracking Wheel Circumference
+const double leftOffset = 5; //Subject to change when we add tracking wheels, Distance from Tracking Center to Left Tracking Wheel
+const double rightOffset = 5; //Subject to change when we add tracking wheels, Distance from Tracking Center to Right Tracking Wheel
+const double backOffset = 5; //Subject to change when we add tracking wheels, Distance from Tracking Center to Back Tracking Wheel
+
 
 
 //--------------------------------Variables----------------------------------//
+//ODOMETRY Variables
+double globalX = 0; //Global X Coordinate of Robot
+double globalY = 0; //Global Y Coordinate of Robot
+
+float curLeft = 0; //Current Position of Left Encoder
+float curRight = 0; //Current Position of Right Encoder
+float curBack = 0; //Current Position of Back Encoder
+
+float prevLeft = 0; //Last Position of Left Encoder
+float prevRight = 0; //Last Position of Right Encoder
+float prevBack = 0; //Last Position of Back Encoder
+float prevGyroRadians; //Last Gyro Position (Radians)
+
+float deltaL = 0; //Change in Left Encoder
+float deltaR = 0; //Change in Right Encoder
+float deltaB = 0; //Change in Back Encoder
+
+float deltaTheta = 0; //Change in Arc Angle
+
+float deltaX = 0; //Change in X Position
+float deltaY = 0; //Change in X Position
+
+float deltaDistance; //Change in dstance moved
+float deltaDistanceSide; //Change in Side Distance
+double absoluteAngleOfMovement = 0; //Direction Of Movement
+
+float totalDistance = 0; //Tracks Total Distance traveled
+
+double targetX = 0; //Target X-Position
+double targetY = 0; //Target Y-Position
+double targetDeg = 0; //Target Degree
+double targetDistance = 0; //Straightest Path to Target 
+
+int stopTime = 0; //Used for isStopped Function
+
+
 //Auton Selection Vars
 bool redAuton = true;
 bool bothSides = true;
@@ -62,6 +102,120 @@ bool firingCata = false;
 //---------------------------------------------------------------------------//
 //--------------------------------Functions----------------------------------//
 //---------------------------------------------------------------------------//
+
+//--------------------------------Odometry/Math Functions----------------------------------//
+double degreesToInches(double ticks){ //Converts Encoder Ticks to Inches Traveled
+  return (ticks / 360) * 1.4 * TrackingCircumference;
+}
+
+double keepInRange (double n, double low, double high){ //Keeps input value (n) between two defined constraints
+  if (n > high){
+    n = high;
+  }
+  if (n < low){
+    n = low;
+  }
+  return n;
+}
+
+double distanceTo (double x1, double y1){ //Calculates Distance Between Current Location (GlobalX, GlobalY) and target points (x1, y1)
+  return sqrt(pow(globalX - x1, 2) + pow(globalY - y1, 2));
+}
+
+double getRightReading(){
+  return degreesToInches(EncoderR);
+}
+
+double getLeftReading(){
+  return degreesToInches(EncoderL);
+}
+
+double getBackReading(){
+  return degreesToInches(EncoderB);
+}
+
+bool isStopped(){ //Checks to see if Robot isn't moving: Makes sure it doens't run into walls (COULD ENCOUNTER PROBLEMS!)
+
+  if (fabs(deltaR) < 0.001 && fabs(deltaL) < 0.001){
+    stopTime += 1;
+  } else {
+    stopTime = 0;
+  }
+  if (stopTime == 50){
+    return true;
+  } else {
+    return false;
+  }
+
+}
+
+double getRobotRotation(){ //Gets robot orientation in degrees
+  return -Gyro.orientation(yaw, degrees); //Negative because of weird trig math, left is positive, right is negative
+}
+
+double getRobotRadians(){ //Gets robot orientation in radians
+  return getRobotRotation() * toRadians;
+}
+
+//Changes angle to make sure the shorter distance is traveled, ie if a the angle is more than 180 degrees, turn the other direction so it's faster
+double angleWrap(double angle){
+  double robotAngle = getRobotRotation();
+  while (angle > robotAngle + 180){ 
+    angle -= 360;
+  }
+  while (angle < robotAngle - 180){
+    angle += 360;
+  }
+
+  return angle; //return new angle
+}
+
+double getDegToPosition(double x, double y){ //Find Angle That points to the desired point
+
+  double relativeX = x - globalX;
+  double relativeY = y - globalY;
+
+  double degToPosition = toDegrees * atan2(relativeY, relativeX);
+  
+  degToPosition = angleWrap(degToPosition);
+
+  return degToPosition;
+
+}
+
+//Movement Functions
+
+void leftDrive(double power) {
+  LBMotor.spin(fwd, power, pct);
+  LMMotor.spin(fwd, power, pct);
+  LFMotor.spin(fwd, power, pct);
+}
+
+void rightDrive(double power){
+  RMMotor.spin(fwd, power, pct);
+  RFMotor.spin(fwd, power, pct);
+  RBMotor.spin(fwd, power, pct);
+}
+
+void drive(double power){
+  RMMotor.spin(fwd, power, pct);
+  RFMotor.spin(fwd, power, pct);
+  RBMotor.spin(fwd, power, pct);
+  LBMotor.spin(fwd, power, pct);
+  LMMotor.spin(fwd, power, pct);
+  LFMotor.spin(fwd, power, pct);
+}
+
+void stopDrive(){
+  RMMotor.stop(coast);
+  RBMotor.stop(coast);
+  RFMotor.stop(coast);
+  LMMotor.stop(coast);
+  LFMotor.stop(coast);
+  LBMotor.stop(coast);
+}
+
+
 
 
 //--------------------------------Auton Selection----------------------------------//
@@ -266,33 +420,453 @@ void ButtonPressed(){
 //---------------------------------------------------------------------------------------------------------//
 //---------------------------------------------------------------------------------------------------------//
 
-//Variables
+//--------------------------------PID for ODOM----------------------------------//
 
-//Encoder Values
-double dL;
-double dR;
-double dS;
+float prevError = 0;
+float totalError = 0;
+float der = 0;
+float heading = 0;
+
+float fwdPIDCycle(double targetDist, double maxSpeed){
+
+  float kP = 2;
+  float kI = 0.01;
+  float kD = 1;
+
+  float integralPowerLimit = 45 / kD;
+  float integralActiveZone = 10;
+  float errorThreshold = 0.5;
+
+  float speed = 0;
+  float error = targetDist;
+
+  if (error > errorThreshold){ //Check if error is over the threshold
+
+    if (fabs(error) < integralActiveZone){
+      totalError += error;
+    } else {
+      totalError = 0;
+    }
+    
+    totalError = keepInRange(totalError, -integralPowerLimit, integralPowerLimit);
+    der = error - prevError;
+
+    speed = kP * error + kI * totalError + kD * der;
+
+    speed = keepInRange(speed, -maxSpeed, maxSpeed);
+    
+    if (speed > 0 && speed < 2) {
+      speed = 2;
+    } if (speed < 0 && speed > -2) {
+      speed = -2;
+    }
 
 
 
+  } else {
+    totalError = 0;
+    der = 0;
+    speed = 0;
+  }
 
-int ODOM(){
+  prevError = error;
+
+  return speed;
 
 
-  while (true) {    
+}
+
+float turnPIDCycle(double targetDeg, double maxSpeed){
+
+  float kP = 2;
+  float kI = 0.01;
+  float kD = 1;
+
+  float integralPowerLimit = 45 / kD;
+  float integralActiveZone = 10;
+  float errorThreshold = 0.5;
+
+  float speed = 0;
+  float error = targetDeg - getRobotRotation();
+
+  if (error > errorThreshold){ //Check if error is over the threshold
+
+    if (fabs(error) < integralActiveZone){
+      totalError += error;
+    } else {
+      totalError = 0;
+    }
+    
+    totalError = keepInRange(totalError, -integralPowerLimit, integralPowerLimit);
+    der = error - prevError;
+
+    speed = kP * error + kI * totalError + kD * der;
+
+    speed = keepInRange(speed, -maxSpeed, maxSpeed);
+    
+    if (speed > 0 && speed < 2) {
+      speed = 2;
+    } if (speed < 0 && speed > -2) {
+      speed = -2;
+    }
 
 
 
-    vex::task::sleep(10);
+  } else {
+    totalError = 0;
+    der = 0;
+    speed = 0;
+  }
+  
+  prevError = error;
+
+  return speed;
+
+
+}
+
+float driftPIDCycle(double maxSpeed){
+
+  float kP = 2;
+  float kI = 0.01;
+  float kD = 1;
+
+  float integralPowerLimit = 45 / kD;
+  float integralActiveZone = 2;
+  float errorThreshold = 0;
+
+  float speed = 0;
+  float error = heading - getRobotRotation();
+
+  if (error != errorThreshold){ //Check if error is inequal to the threshold
+
+    if (fabs(error) < integralActiveZone){
+      totalError += error;
+    } else {
+      totalError = 0;
+    }
+    
+    totalError = keepInRange(totalError, -integralPowerLimit, integralPowerLimit);
+    der = error - prevError;
+
+    speed = kP * error + kI * totalError + kD * der;
+
+    speed = keepInRange(speed, -maxSpeed, maxSpeed);
+    
+    if (speed > 0 && speed < 2) {
+      speed = 1;
+    } if (speed < 0 && speed > -2) {
+      speed = -1;
+    }
+
+
+
+  } else {
+    totalError = 0;
+    der = 0;
+    speed = 0;
+  }
+  
+  prevError = error;
+
+  return speed;
+
+}
+
+void fwdPIDFunction(double targetDist, double maxSpeed, double timeoutMil = -1){ //Run a PID loop that drives forward or backwards
+
+  double currentSpeed = 1;
+
+  timer Time;
+  Time.reset();
+
+  totalDistance = 0;
+
+  heading = getRobotRotation();
+
+  while (Time < timeoutMil || timeoutMil == -1){
+
+    double currentDist = targetDist - totalDistance;
+
+    currentSpeed = fwdPIDCycle(currentDist, maxSpeed);
+
+    leftDrive(currentSpeed + driftPIDCycle(maxSpeed));
+    rightDrive(currentSpeed - driftPIDCycle(maxSpeed));
+
+    task::sleep(10);
 
   }
 
-  return(0);
+  stopDrive();
+
+}
+
+void turnPIDFunction(double targetDeg, double maxSpeed, double timeoutMil = -1){ //Run a PID loop that Turns the Robot to a certain degree
+
+  double currentSpeed = 1;
+
+  timer Time;
+  Time.reset();
+
+  while (Time < timeoutMil || timeoutMil == -1){
+
+    currentSpeed = turnPIDCycle(targetDeg, maxSpeed);
+
+    leftDrive(currentSpeed);
+    rightDrive(currentSpeed);
+
+    task::sleep(10);
+
+  }
+
+  stopDrive();
+
+}
+
+//---------------------------------------------- Odometry Function -------------------------------------------------------//
+
+int updatePosition(){ //Updates position and rotation of robot through odometry
+
+  //Get Current Encoder Values in Inches
+  curLeft = getLeftReading();
+  curRight = getRightReading();
+  curBack = getBackReading();
+
+  //Get Change in Encoder Value since last cycle
+  deltaL = curLeft - prevLeft;
+  deltaR = curRight - prevRight;
+  deltaB = curBack - prevBack;
+
+  //Calculate the Angle of the arc traveled
+  deltaTheta = (deltaL - deltaR) / (leftOffset + rightOffset);
+
+  if (deltaTheta == 0){ //If the robot has not rotated...
+
+    deltaDistance = (deltaL + deltaR) / 2; //Average change in encoder values
+    
+  } else {
+
+    double radius = deltaR/deltaTheta - rightOffset; //Find radius of arc by adding right offset to right encoder radius
+
+    deltaDistance = 2 * radius * (sin(deltaTheta/2)); //Find Chord Length from start of robot center to end of robot center
+
+  }
+
+  absoluteAngleOfMovement = prevGyroRadians + deltaTheta/2; //Caluclate Angle between last and current position 
+
+  //Calculate Change in Global Position //Convert Polar Coordinates (radius, angle) to Cartesian Coordinates (x, y)
+  deltaX = deltaDistance * cos(absoluteAngleOfMovement); 
+  deltaY = deltaDistance * sin(absoluteAngleOfMovement);
+
+  //Calculates Global Change by Summing all changes
+  globalX += deltaX;
+  globalY += deltaY;
+
+  totalDistance += deltaDistance; //total Distance traveled since last reset
+
+  //Save Previous Values
+  prevLeft = curLeft;
+  prevRight = curRight;
+  prevBack = curBack;
+  prevGyroRadians = getRobotRadians();
+
+  return 1;
+}
+
+void setTarget(double x, double y){
+
+  targetX = x;
+  targetY = y;
+
+}
+
+void turnToTarget(double maxTurnSpeed){ //Turn to Face Target Position
+
+  double turnSpeed = 1;
+
+  while (turnSpeed != 0){
+
+    targetDeg = getDegToPosition(targetX, targetY);
+
+    turnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed);
+
+    leftDrive(-turnSpeed);
+    rightDrive(turnSpeed);
+
+    task::sleep(5);
+
+  }
+  stopDrive();
+
+}
+
+void moveToTarget(double maxFwdSpeed, double maxTurnSpeed){ //Turn to and Move to position simultaneously
+
+  totalDistance = 0;
+  stopTime = 0;
+
+  double curFwdSpeed = 1;
+  double curTurnSpeed = 1;
+
+  targetDistance = distanceTo(targetX, targetY);
+
+  while (curFwdSpeed != 0 && targetDistance > 3 && !isStopped()) { //Turns only when farther than a few inches to prevent donuts. isStopped could be faulty
+
+    targetDistance = distanceTo(targetX, targetY);
+    targetDeg = getDegToPosition(targetX, targetY);
+
+    curFwdSpeed = fwdPIDCycle(targetDistance, maxFwdSpeed);
+    curTurnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed);
+
+    leftDrive(curFwdSpeed - curTurnSpeed);
+    rightDrive(curFwdSpeed + curTurnSpeed);
+
+    task::sleep(5);
+  }
+  while (curFwdSpeed != 0 && !isStopped()) { //Only Drive Forward after a few inches
+
+    targetDistance = distanceTo(targetX, targetY);
+    
+    curFwdSpeed = fwdPIDCycle(targetDistance, maxFwdSpeed);
+    curTurnSpeed = 0;
+
+    leftDrive(curFwdSpeed);
+    rightDrive(curFwdSpeed);
+
+    task::sleep(5);
+
+  }
+  stopDrive();
+
+}
+
+void moveToTargetRev(double maxFwdSpeed, double maxTurnSpeed){ //Turn to and Move to position simultaneously
+
+  totalDistance = 0;
+  stopTime = 0;
+
+  double curFwdSpeed = 1;
+  double curTurnSpeed = 1;
+
+  targetDistance = -distanceTo(targetX, targetY);
+
+  while (curFwdSpeed != 0 && fabs(targetDistance) > 3 && !isStopped()) { //Turns only when farther than a few inches to prevent donuts. isStopped could be faulty
+
+    targetDistance = -distanceTo(targetX, targetY);
+    targetDeg = getDegToPosition(targetX, targetY);
+    targetDeg = angleWrap(targetDeg - 180);
+
+    curFwdSpeed = fwdPIDCycle(targetDistance, maxFwdSpeed);
+    curTurnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed);
+
+    leftDrive(curFwdSpeed - curTurnSpeed);
+    rightDrive(curFwdSpeed + curTurnSpeed);
+
+    task::sleep(5);
+  }
+  while (curFwdSpeed != 0 && !isStopped()) { //Only Drive Forward after a few inches
+
+    targetDistance = -distanceTo(targetX, targetY);
+    
+    curFwdSpeed = fwdPIDCycle(targetDistance, maxFwdSpeed);
+    curTurnSpeed = 0;
+
+    leftDrive(curFwdSpeed);
+    rightDrive(curFwdSpeed);
+
+    task::sleep(5);
+
+  }
+  stopDrive();
+
+}
+
+void passTarget (double maxFwdSpeed, double maxTurnSpeed) { //Passes Target: Allows for more control of path
+
+  totalDistance = 0;
+
+  double curTurnSpeed = 1;
+
+  double initialX = globalX;
+  double initialY = globalY;
+
+  targetDistance = distanceTo(targetX, targetY);
+
+  bool passedX = false;
+  bool passedY = false;
+
+  while (!passedX || !passedY) {
+
+    passedX = (initialX >= targetX && globalX <= targetX) || (initialX <= targetX && globalX >= targetX);
+    passedY = (initialY >= targetY && globalY <= targetY) || (initialY <= targetY && globalY >= targetY);
+
+    targetDistance = distanceTo(targetX, targetY);
+
+    if (fabs(targetDistance) > 2){
+
+      targetDeg = getDegToPosition(targetX, targetY);
+      curTurnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed);
+
+    } else {
+
+      curTurnSpeed = 0;
+
+    }
+
+    leftDrive(maxFwdSpeed - curTurnSpeed);
+    rightDrive(maxFwdSpeed + curTurnSpeed);
+
+    task::sleep(5);
+
+  }
+
+}
+
+void passTargetRev (double maxFwdSpeed, double maxTurnSpeed) { //Passes Target: Allows for more control of path
+
+  totalDistance = 0;
+
+  double curTurnSpeed = 1;
+
+  double initialX = globalX;
+  double initialY = globalY;
+
+  targetDistance = -distanceTo(targetX, targetY);
+
+  bool passedX = false;
+  bool passedY = false;
+
+  while (!passedX || !passedY) {
+
+    passedX = (initialX >= targetX && globalX <= targetX) || (initialX <= targetX && globalX >= targetX);
+    passedY = (initialY >= targetY && globalY <= targetY) || (initialY <= targetY && globalY >= targetY);
+
+    targetDistance = -distanceTo(targetX, targetY);
+
+    if (fabs(targetDistance) > 2){
+
+      targetDeg = getDegToPosition(targetX, targetY);
+      targetDeg = angleWrap(targetDeg - 180);
+      curTurnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed);
+
+    } else {
+
+      curTurnSpeed = 0;
+
+    }
+
+    leftDrive(maxFwdSpeed - curTurnSpeed);
+    rightDrive(maxFwdSpeed + curTurnSpeed);
+
+    task::sleep(5);
+
+  }
 
 }
 
 
-//----------------------------------------------PID-------------------------------------------------------//
+
+//---------------------------------------------- OLD PID FUNCTIONS -------------------------------------------------------//
 
 //drivePID Tuning Values
 double kP = 0.005;
@@ -310,9 +884,6 @@ double dkI = 0.00000000001;
 double dkD = 0.0003;
 
 int error; //Sensor Value - Desired Value : Position
-int prevError; //Position 20ms ago
-int der; //derivative : Speed
-int totalError; //
 
 int ticks = 0;
 
@@ -647,12 +1218,9 @@ void autonomous(void) {
   //vex::task driveForward(drivePID);
 
   vex::task t1(cataFire);
+  vex::task t2(updatePosition);
 
-  //rollerSide = false;
-  //bothSides = false;
-  //skills = true;
-
-  if (rollerSide == true){
+  if (rollerSide == true){ //Roller Side Auton
     firingCata = true;
     drivePID(-750);
     wait (0.2, sec);
@@ -680,7 +1248,7 @@ void autonomous(void) {
     wait(1,sec);
     Intake.stop();
     drivePID(-50);
-  } else if (bothSides == true){
+  } else if (bothSides == true){ //Both Sides Auton
     firingCata = true;
     Intake.spin(reverse, 100, vex::velocityUnits::pct);
     drivePID(50);
@@ -710,7 +1278,7 @@ void autonomous(void) {
     wait(0.2, sec);
     Intake.spin(reverse, 100, vex::velocityUnits::pct);
     drivePID(100);
-  } else if (skills == true) {
+  } else if (skills == true) { //Skills Auton
     firingCata = true;
     Intake.spin(reverse, 100, vex::velocityUnits::pct);
     drivePID(50); //drive Forward and Spin Roller
@@ -776,7 +1344,7 @@ void autonomous(void) {
     ExpansionPnuematics1.off();
     ExpansionPnuematics2.off();
 
-  } else {
+  } else { //Non Roller Side Auton
     firingCata = true;
     drivePID(-750);
     wait (0.2, sec);
