@@ -61,10 +61,10 @@ float curLeft = 0; //Current Position of Left Encoder
 float curRight = 0; //Current Position of Right Encoder
 float curBack = 0; //Current Position of Back Encoder
 
-float lastLeft = 0; //Last Position of Left Encoder
-float lastRight = 0; //Last Position of Right Encoder
-float lastBack = 0; //Last Position of Back Encoder
-float lastGyroRadians; //Last Gyro Position (Radians)
+float prevLeft = 0; //Last Position of Left Encoder
+float prevRight = 0; //Last Position of Right Encoder
+float prevBack = 0; //Last Position of Back Encoder
+float prevGyroRadians; //Last Gyro Position (Radians)
 
 float deltaL = 0; //Change in Left Encoder
 float deltaR = 0; //Change in Right Encoder
@@ -206,7 +206,7 @@ void drive(double power){
   LFMotor.spin(fwd, power, pct);
 }
 
-void stopDrive(double power){
+void stopDrive(){
   RMMotor.stop(coast);
   RBMotor.stop(coast);
   RFMotor.stop(coast);
@@ -525,7 +525,7 @@ float turnPIDCycle(double targetDeg, double maxSpeed){
 
 }
 
-float driftPID(double maxSpeed){
+float driftPIDCycle(double maxSpeed){
 
   float kP = 2;
   float kI = 0.01;
@@ -573,10 +573,300 @@ float driftPID(double maxSpeed){
 
 }
 
+void fwdPIDFunction(double targetDist, double maxSpeed, double timeoutMil = -1){ //Run a PID loop that drives forward or backwards
+
+  double currentSpeed = 1;
+
+  timer Time;
+  Time.reset();
+
+  totalDistance = 0;
+
+  heading = getRobotRotation();
+
+  while (Time < timeoutMil || timeoutMil == -1){
+
+    double currentDist = targetDist - totalDistance;
+
+    currentSpeed = fwdPIDCycle(currentDist, maxSpeed);
+
+    leftDrive(currentSpeed + driftPIDCycle(maxSpeed));
+    rightDrive(currentSpeed - driftPIDCycle(maxSpeed));
+
+    task::sleep(10);
+
+  }
+
+  stopDrive();
+
+}
+
+void turnPIDFunction(double targetDeg, double maxSpeed, double timeoutMil = -1){ //Run a PID loop that Turns the Robot to a certain degree
+
+  double currentSpeed = 1;
+
+  timer Time;
+  Time.reset();
+
+  while (Time < timeoutMil || timeoutMil == -1){
+
+    currentSpeed = turnPIDCycle(targetDeg, maxSpeed);
+
+    leftDrive(currentSpeed);
+    rightDrive(currentSpeed);
+
+    task::sleep(10);
+
+  }
+
+  stopDrive();
+
+}
+
+//---------------------------------------------- Odometry Function -------------------------------------------------------//
+
+int updatePosition(){ //Updates position and rotation of robot through odometry
+
+  //Get Current Encoder Values in Inches
+  curLeft = getLeftReading();
+  curRight = getRightReading();
+  curBack = getBackReading();
+
+  //Get Change in Encoder Value since last cycle
+  deltaL = curLeft - prevLeft;
+  deltaR = curRight - prevRight;
+  deltaB = curBack - prevBack;
+
+  //Calculate the Angle of the arc traveled
+  deltaTheta = (deltaL - deltaR) / (leftOffset + rightOffset);
+
+  if (deltaTheta == 0){ //If the robot has not rotated...
+
+    deltaDistance = (deltaL + deltaR) / 2; //Average change in encoder values
+    
+  } else {
+
+    double radius = deltaR/deltaTheta - rightOffset; //Find radius of arc by adding right offset to right encoder radius
+
+    deltaDistance = 2 * radius * (sin(deltaTheta/2)); //Find Chord Length from start of robot center to end of robot center
+
+  }
+
+  absoluteAngleOfMovement = prevGyroRadians + deltaTheta/2; //Caluclate Angle between last and current position 
+
+  //Calculate Change in Global Position //Convert Polar Coordinates (radius, angle) to Cartesian Coordinates (x, y)
+  deltaX = deltaDistance * cos(absoluteAngleOfMovement); 
+  deltaY = deltaDistance * sin(absoluteAngleOfMovement);
+
+  //Calculates Global Change by Summing all changes
+  globalX += deltaX;
+  globalY += deltaY;
+
+  totalDistance += deltaDistance; //total Distance traveled since last reset
+
+  //Save Previous Values
+  prevLeft = curLeft;
+  prevRight = curRight;
+  prevBack = curBack;
+  prevGyroRadians = getRobotRadians();
+
+  return 1;
+}
+
+void setTarget(double x, double y){
+
+  targetX = x;
+  targetY = y;
+
+}
+
+void turnToTarget(double maxTurnSpeed){ //Turn to Face Target Position
+
+  double turnSpeed = 1;
+
+  while (turnSpeed != 0){
+
+    targetDeg = getDegToPosition(targetX, targetY);
+
+    turnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed);
+
+    leftDrive(-turnSpeed);
+    rightDrive(turnSpeed);
+
+    task::sleep(5);
+
+  }
+  stopDrive();
+
+}
+
+void moveToTarget(double maxFwdSpeed, double maxTurnSpeed){ //Turn to and Move to position simultaneously
+
+  totalDistance = 0;
+  stopTime = 0;
+
+  double curFwdSpeed = 1;
+  double curTurnSpeed = 1;
+
+  targetDistance = distanceTo(targetX, targetY);
+
+  while (curFwdSpeed != 0 && targetDistance > 3 && !isStopped()) { //Turns only when farther than a few inches to prevent donuts. isStopped could be faulty
+
+    targetDistance = distanceTo(targetX, targetY);
+    targetDeg = getDegToPosition(targetX, targetY);
+
+    curFwdSpeed = fwdPIDCycle(targetDistance, maxFwdSpeed);
+    curTurnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed);
+
+    leftDrive(curFwdSpeed - curTurnSpeed);
+    rightDrive(curFwdSpeed + curTurnSpeed);
+
+    task::sleep(5);
+  }
+  while (curFwdSpeed != 0 && !isStopped()) { //Only Drive Forward after a few inches
+
+    targetDistance = distanceTo(targetX, targetY);
+    
+    curFwdSpeed = fwdPIDCycle(targetDistance, maxFwdSpeed);
+    curTurnSpeed = 0;
+
+    leftDrive(curFwdSpeed);
+    rightDrive(curFwdSpeed);
+
+    task::sleep(5);
+
+  }
+  stopDrive();
+
+}
+
+void moveToTargetRev(double maxFwdSpeed, double maxTurnSpeed){ //Turn to and Move to position simultaneously
+
+  totalDistance = 0;
+  stopTime = 0;
+
+  double curFwdSpeed = 1;
+  double curTurnSpeed = 1;
+
+  targetDistance = -distanceTo(targetX, targetY);
+
+  while (curFwdSpeed != 0 && fabs(targetDistance) > 3 && !isStopped()) { //Turns only when farther than a few inches to prevent donuts. isStopped could be faulty
+
+    targetDistance = -distanceTo(targetX, targetY);
+    targetDeg = getDegToPosition(targetX, targetY);
+    targetDeg = angleWrap(targetDeg - 180);
+
+    curFwdSpeed = fwdPIDCycle(targetDistance, maxFwdSpeed);
+    curTurnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed);
+
+    leftDrive(curFwdSpeed - curTurnSpeed);
+    rightDrive(curFwdSpeed + curTurnSpeed);
+
+    task::sleep(5);
+  }
+  while (curFwdSpeed != 0 && !isStopped()) { //Only Drive Forward after a few inches
+
+    targetDistance = -distanceTo(targetX, targetY);
+    
+    curFwdSpeed = fwdPIDCycle(targetDistance, maxFwdSpeed);
+    curTurnSpeed = 0;
+
+    leftDrive(curFwdSpeed);
+    rightDrive(curFwdSpeed);
+
+    task::sleep(5);
+
+  }
+  stopDrive();
+
+}
+
+void passTarget (double maxFwdSpeed, double maxTurnSpeed) { //Passes Target: Allows for more control of path
+
+  totalDistance = 0;
+
+  double curTurnSpeed = 1;
+
+  double initialX = globalX;
+  double initialY = globalY;
+
+  targetDistance = distanceTo(targetX, targetY);
+
+  bool passedX = false;
+  bool passedY = false;
+
+  while (!passedX || !passedY) {
+
+    passedX = (initialX >= targetX && globalX <= targetX) || (initialX <= targetX && globalX >= targetX);
+    passedY = (initialY >= targetY && globalY <= targetY) || (initialY <= targetY && globalY >= targetY);
+
+    targetDistance = distanceTo(targetX, targetY);
+
+    if (fabs(targetDistance) > 2){
+
+      targetDeg = getDegToPosition(targetX, targetY);
+      curTurnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed);
+
+    } else {
+
+      curTurnSpeed = 0;
+
+    }
+
+    leftDrive(maxFwdSpeed - curTurnSpeed);
+    rightDrive(maxFwdSpeed + curTurnSpeed);
+
+    task::sleep(5);
+
+  }
+
+}
+
+void passTargetRev (double maxFwdSpeed, double maxTurnSpeed) { //Passes Target: Allows for more control of path
+
+  totalDistance = 0;
+
+  double curTurnSpeed = 1;
+
+  double initialX = globalX;
+  double initialY = globalY;
+
+  targetDistance = -distanceTo(targetX, targetY);
+
+  bool passedX = false;
+  bool passedY = false;
+
+  while (!passedX || !passedY) {
+
+    passedX = (initialX >= targetX && globalX <= targetX) || (initialX <= targetX && globalX >= targetX);
+    passedY = (initialY >= targetY && globalY <= targetY) || (initialY <= targetY && globalY >= targetY);
+
+    targetDistance = -distanceTo(targetX, targetY);
+
+    if (fabs(targetDistance) > 2){
+
+      targetDeg = getDegToPosition(targetX, targetY);
+      targetDeg = angleWrap(targetDeg - 180);
+      curTurnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed);
+
+    } else {
+
+      curTurnSpeed = 0;
+
+    }
+
+    leftDrive(maxFwdSpeed - curTurnSpeed);
+    rightDrive(maxFwdSpeed + curTurnSpeed);
+
+    task::sleep(5);
+
+  }
+
+}
 
 
 
-//----------------------------------------------PID-------------------------------------------------------//
+//---------------------------------------------- OLD PID FUNCTIONS -------------------------------------------------------//
 
 //drivePID Tuning Values
 double kP = 0.005;
@@ -928,12 +1218,9 @@ void autonomous(void) {
   //vex::task driveForward(drivePID);
 
   vex::task t1(cataFire);
+  vex::task t2(updatePosition);
 
-  //rollerSide = false;
-  //bothSides = false;
-  //skills = true;
-
-  if (rollerSide == true){
+  if (rollerSide == true){ //Roller Side Auton
     firingCata = true;
     drivePID(-750);
     wait (0.2, sec);
@@ -961,7 +1248,7 @@ void autonomous(void) {
     wait(1,sec);
     Intake.stop();
     drivePID(-50);
-  } else if (bothSides == true){
+  } else if (bothSides == true){ //Both Sides Auton
     firingCata = true;
     Intake.spin(reverse, 100, vex::velocityUnits::pct);
     drivePID(50);
@@ -991,7 +1278,7 @@ void autonomous(void) {
     wait(0.2, sec);
     Intake.spin(reverse, 100, vex::velocityUnits::pct);
     drivePID(100);
-  } else if (skills == true) {
+  } else if (skills == true) { //Skills Auton
     firingCata = true;
     Intake.spin(reverse, 100, vex::velocityUnits::pct);
     drivePID(50); //drive Forward and Spin Roller
@@ -1057,7 +1344,7 @@ void autonomous(void) {
     ExpansionPnuematics1.off();
     ExpansionPnuematics2.off();
 
-  } else {
+  } else { //Non Roller Side Auton
     firingCata = true;
     drivePID(-750);
     wait (0.2, sec);
