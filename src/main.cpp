@@ -105,7 +105,7 @@ bool firingCata = false;
 
 //--------------------------------Odometry/Math Functions----------------------------------//
 double degreesToInches(double ticks){ //Converts Encoder Ticks to Inches Traveled
-  return (ticks / 360) * 1.4 * TrackingCircumference;
+  return (ticks / 360) * TrackingCircumference;
 }
 
 double keepInRange (double n, double low, double high){ //Keeps input value (n) between two defined constraints
@@ -1523,29 +1523,18 @@ void usercontrol(void) {
 
     }
 
-    //---------------------------------------Rollers---------------------------------------//
-    if (Controller1.ButtonR1.pressing()){ //Spin Roller Slowly
-      
-      if (multiplier == 1) {
-        multiplier = -1;
-        wait(0.15, sec);
-      } else {
-        multiplier = 1;
-        wait(0.15, sec);
-      }
-    }
-
-    
-
-
     //---------------------------------------Expansion---------------------------------------//
     if (Controller1.ButtonB.pressing()){
       ExpansionPnuematics1.off();
-      ExpansionPnuematics2.off();
       Controller1.rumble(".");
     }
 
     if (Controller1.ButtonY.pressing()){
+      ExpansionPnuematics2.off();
+      Controller1.rumble(".");
+    }
+
+    if (Controller1.ButtonRight.pressing()){
       ExpansionPnuematics1.on();
       ExpansionPnuematics2.on();
       Controller1.rumble(".");
@@ -1554,6 +1543,17 @@ void usercontrol(void) {
     //---------------------------------------Catapult---------------------------------------//
 
     limitSwitchVar = LimitSwitch.pressing();//Variable for Limit Switch
+
+    if (Controller1.ButtonR1.pressing()){
+
+      CataPistons.on();
+
+    } else {
+
+      CataPistons.off();
+
+    }
+
 
     //Cata Stop
     if (limitSwitchVar == true && limitSwitchCan >= 20) {
@@ -1620,6 +1620,10 @@ void usercontrol(void) {
     //Manual Cata
     if (Controller1.ButtonUp.pressing()){
       Cata.spin(vex::directionType::rev, 100, vex::velocityUnits::pct);
+    } 
+
+    if (Controller1.ButtonLeft.pressing()){
+      Cata.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct);
     } 
 
 
