@@ -869,17 +869,17 @@ void passTargetRev (double maxFwdSpeed, double maxTurnSpeed) { //Passes Target: 
 //---------------------------------------------- OLD PID FUNCTIONS -------------------------------------------------------//
 
 //drivePID Tuning Values
-double kP = 0.02;
-double kI = 0.0000000000000001;
+double kP = 0.06;
+double kI = 0.0000001;
 double kD = 0.0003;
 
 //TurnPID Tuning Values
-double turnkP = 0.07;
-double turnkI = 0.000000001; //0.00000000000000000001
+double turnkP = 0.1;
+double turnkI = 0.01; //0.00000000000000000001
 double turnkD = 0.0003;
 
 //driftPID Tuning Values
-double dkP = 0.02;
+double dkP = 0.005;
 double dkI = 0.00000000001;
 double dkD = 0.0003;
 
@@ -892,7 +892,7 @@ double driftPrevError;
 double driftTotalError;
 double driftDer;
 
-void drivePID (int desiredValue, int maxSpeed = 11){
+void drivePID (int desiredValue, int maxSpeed = 12, int errorThreshold = 5){
 
   //Reset motor Position
   LMMotor.setPosition(0, degrees);
@@ -931,11 +931,17 @@ void drivePID (int desiredValue, int maxSpeed = 11){
       totalError = 0;
     }
 
-    double motorDifference = (driftError * dkP + driftDer * dkD) * 10; //+ driftTotalError * dkI
+    double motorDifference = (driftError * dkP + driftDer * dkD) * 3; //+ driftTotalError * dkI
 
-    double lateralMotorPower = (error * kP + der * kD + totalError * kI) * 10;
+    double lateralMotorPower = (error * kP + der * kD + totalError * kI);
 
     lateralMotorPower = keepInRange(lateralMotorPower, -maxSpeed, maxSpeed);
+
+    if (lateralMotorPower > 0 && lateralMotorPower < 2){
+      lateralMotorPower = 2;
+    } else if (lateralMotorPower < 0 && lateralMotorPower > -2){
+      lateralMotorPower = -2;
+    }
 
     LMMotor.spin(reverse, lateralMotorPower - motorDifference, voltageUnits::volt);
     LFMotor.spin(reverse, lateralMotorPower - motorDifference, voltageUnits::volt);
@@ -965,7 +971,7 @@ void drivePID (int desiredValue, int maxSpeed = 11){
     driftPrevError = driftError;
     vex::task::sleep(20);
 
-    if (fabs(error) < 0.5){
+    if (fabs(error) < errorThreshold){
       Brain.Screen.setCursor(5, 20);
       Brain.Screen.setPenColor(purple);
       Brain.Screen.print("Break");
@@ -1000,7 +1006,7 @@ void drivePID (int desiredValue, int maxSpeed = 11){
 
 }
 
-void turnPID (int desiredValue, int maxSpeed = 10){
+void turnPID (int desiredValue, int maxSpeed = 12){
 
   //Reset motor Position
   LMMotor.setPosition(0, degrees);
@@ -1012,8 +1018,8 @@ void turnPID (int desiredValue, int maxSpeed = 10){
 
   while (true) {
 
-    double gyroPosition = Gyro.orientation(yaw, degrees);
-    double integralActiveZone = 6;
+    int gyroPosition = Gyro.orientation(yaw, degrees);
+    double integralActiveZone = 30;
 
     //potential
     error = gyroPosition - desiredValue;
@@ -1029,6 +1035,12 @@ void turnPID (int desiredValue, int maxSpeed = 10){
     double lateralMotorPower = (error * turnkP + der * turnkD + totalError * turnkI); //+ totalError * turnkI
 
     lateralMotorPower = keepInRange(lateralMotorPower, -maxSpeed, maxSpeed);
+
+    if (lateralMotorPower > 0 && lateralMotorPower < 2){
+      lateralMotorPower = 2;
+    } else if (lateralMotorPower < 0 && lateralMotorPower > -2){
+      lateralMotorPower = -2;
+    }
 
     LMMotor.spin(reverse, lateralMotorPower, voltageUnits::volt);
     LFMotor.spin(reverse, lateralMotorPower, voltageUnits::volt);
@@ -1064,12 +1076,12 @@ void turnPID (int desiredValue, int maxSpeed = 10){
 
     Brain.Screen.print(error);
 
-    if (fabs(error) == 0){
+    if (fabs(error) < 10){
       Brain.Screen.setCursor(5, 20);
       Brain.Screen.setPenColor(purple);
       Brain.Screen.print("Break");
       break;
-    } else if (fabs(error) < 6){
+    } else if (fabs(error) < 4){
       ticks++;
       if (ticks > 30){
         break;
@@ -1175,6 +1187,7 @@ void pre_auton(void) {
 
   ExpansionPnuematics1.on();
   ExpansionPnuematics2.on();
+  CataPistons.off();
 
   drawRectangles();
 
@@ -1235,46 +1248,55 @@ void autonomous(void) {
   vex::task t1(cataFire);
   vex::task t2(updatePosition);
 
-  rollerSide = true;
+  rollerSide = false;
+  bothSides = false;
 
   if (rollerSide == true){ //Roller Side Auton
     if (LimitSwitch.pressing() == false){
       firingCata = true;
     }
+    Intake.spin(forward, 60, vex::velocityUnits::pct);
+    wait(0.1, sec);
+    drivePID(112, 11, 75);
+    wait(0.2, sec);
+    drivePID(-150);
     Intake.spin(forward, 100, vex::velocityUnits::pct);
-    wait(0.5, sec);
-    drivePID(50, 6);
-    drivePID(-60);
+    wait(0.1, sec);
+    turnPID(110, 6);
+    drivePID(100);
+    wait(0.3, sec);
+    drivePID(-230);
+    turnPID(85, 6);
+    drivePID(-530);
+    wait(0.1, sec);
+    turnPID(0);
+    wait(0.1, sec);
+    drivePID(-400, 9);
+    turnPID(-30);
+    drivePID(-150);
     wait(0.2, sec);
-    turnPID(135, 6);
-    drivePID(90);
-    wait(1, sec);
-    drivePID(-90);
-    turnPID(83, 6);
-    drivePID(-680);
-    wait(0.2, sec);
-    turnPID(0, 6);
-    wait(0.2, sec);
-    drivePID(-770, 9);
-    turnPID(-40, 6);
-    wait(0.2, sec);
-    wait(0.5, sec);
     CataPistons.on();
     Intake.stop();
     firingCata = true;
+    wait(0.7, sec);
+    CataPistons.off();
+    drivePID(50);
+    turnPID(40);
+    Intake.spin(forward, 100, vex::velocityUnits::pct);
+    drivePID(250, 6);
+    wait(0.2, sec);
+    drivePID(500, 6);
+    wait(0.7, sec);
+    drivePID(-850);
+    turnPID(-38, 7);
+    Intake.spin(reverse, 100, vex::velocityUnits::pct);
+    drivePID(-50);
+    wait(1, sec);
+    CataPistons.on();
+    firingCata = true;
+    Intake.stop();
     wait(1, sec);
     CataPistons.off();
-    //turnPID(45);
-    //Intake.spin(forward, 100, vex::velocityUnits::pct);
-    //drivePID(400, 6);
-    //wait(0.5, sec);
-    //drivePID(600, 11);
-    //wait(0.5, sec);
-    //drivePID(-1000);
-    //turnPID(-40, 7);
-    //drivePID(-100);
-    //wait(0.5, sec);
-    //firingCata = true;
   } else if (bothSides == true){ //Both Sides Auton
     firingCata = true;
     Intake.spin(forward, 100, vex::velocityUnits::pct);
@@ -1362,27 +1384,33 @@ void autonomous(void) {
   } else { //Non Roller Side Auton
     firingCata = true;
     Intake.spin(forward, 100, vex::velocityUnits::pct);
-    drivePID(-750);
-    turnPID(-140, 8);
-    drivePID(-100);
-    wait(0.5, sec);
+    drivePID(400, 8);
+    wait(0.1, sec);
+    turnPID(-150, 10);
+    wait(2, sec);
+    drivePID(-150, 12, 125);
+    CataPistons.on();
     firingCata = true;
     wait(0.5, sec);
-    drivePID(100);
-    turnPID(45, 8);
-    drivePID(100, 10);
+    drivePID(25);
+    CataPistons.off();
+    turnPID(45, 6);
+    drivePID(150, 10);
     wait(0.5, sec);
     drivePID(-100);
-    turnPID(-45);
-    drivePID(400, 9);
+    turnPID(-45, 6);
+    drivePID(800, 6);
+    wait(1, sec);
     turnPID(-135, 7);
-    drivePID(-100);
+    drivePID(-50);
     wait(0.5, sec);
+    CataPistons.on();
     firingCata = true;
     wait(0.5, sec);
+    CataPistons.off();
     drivePID(100);
-    turnPID(137, 10);
-    drivePID(1500);
+    turnPID(126, 10);
+    drivePID(2000);
   }
   
   
