@@ -1248,9 +1248,9 @@ void autonomous(void) {
   vex::task t1(cataFire);
   vex::task t2(updatePosition);
 
-  rollerSide = false;
-  bothSides = false;
-  skills = true;
+  //rollerSide = false;
+  //bothSides = true;
+  //skills = false;
 
   if (rollerSide == true){ //Roller Side Auton
     if (LimitSwitch.pressing() == false){
@@ -1306,7 +1306,7 @@ void autonomous(void) {
     wait(0.1, sec); //Delay slightly so it gets up to speed
     drivePID(112, 11, 75); //Drive to roller
     wait(0.2, sec); //wait for roller to spin
-    drivePID(-150); //Drive away from roller
+    drivePID(-100); //Drive away from roller
     Intake.spin(forward, 100, vex::velocityUnits::pct); //Spin intake at full speed to intake disc
     turnPID(-135, 11); //turn to face triple stack
     drivePID(400, 11); //drive towards triple stack
@@ -1323,15 +1323,17 @@ void autonomous(void) {
     turnPID(-135, 11); //turn to face triple line
     drivePID(1000, 6); //intake triple line 
     wait(0.5, sec);
-    drivePID(800); //drive back to high goal
+    drivePID(-800); //drive back to high goal
     turnPID(-50); //turn to face high goal --------------------
     drivePID(-100); //drive towards high goal
     wait(0.5, sec);
     firingCata = true; //fire catapult
     wait(0.5, sec); 
     drivePID(100); //drive away from high goal
-    turnPID(-126); //turn to face roller
-    drivePID(1500); //drive and spin other roller
+    turnPID(-132); //turn to face roller
+    drivePID(1000); //drive and spin other roller
+    wait(1, sec);
+    drivePID(-50, 4);
   } else if (skills == true) { //Skills Auton
     if (LimitSwitch.pressing() == false){
       firingCata = true;
@@ -1350,21 +1352,21 @@ void autonomous(void) {
     turnPID(135); //turn towards roller
     drivePID(250); //drive towards roller
     turnPID(90); //face roller
-    drivePID(200); //spin roller
+    drivePID(190); //spin roller
     wait(0.6, sec);
-    drivePID(-100); //drive away from roller
+    drivePID(-120); //drive away from roller
 
     turnPID(0); //turn towards high goal
     drivePID(-900); //drive towards high goal
-    turnPID(12); //turn to face high goal
+    turnPID(10); //turn to face high goal
     wait(0.5, sec);
     firingCata = true; //fire catapult
     wait(0.5, sec);
-    turnPID(-5); //turn to face foward
+    turnPID(-7); //turn to face foward
     
-    drivePID(750); //drive to where we should be for triple line
-    turnPID(-135); //turn to face triple line
-    drivePID(800, 6); //drive and intake triple line
+    drivePID(650); //drive to where we should be for triple line
+    turnPID(-137); //turn to face triple line
+    drivePID(1100, 6); //drive and intake triple line
     wait(1, sec); //wait to intake third disc
     
     turnPID(-45); //turn to face high goal
@@ -1373,18 +1375,18 @@ void autonomous(void) {
     wait(0.5, sec);
     
     turnPID(-135); //turn to face triple stack
-    drivePID(400, 6); //drive slow and knock over triple stack
+    drivePID(600, 6); //drive slow and knock over triple stack
     wait(0.5, sec);
-    drivePID(500, 6); //drive at a moderate speed to intake discs
+    drivePID(400, 6); //drive at a moderate speed to intake discs
     wait(1, sec); //wait to intake discs
 
-    turnPID(90); //turn to face high goal
+    turnPID(-90); //turn to face high goal
     drivePID(-800); //drive towards high goal
-    turnPID(110); //turn to face high goal
+    turnPID(-110); //turn to face high goal
     wait(0.5, sec);
     firingCata = true; //fire catapult
     wait(0.5, sec);
-    turnPID(90);
+    turnPID(-90);
 
     drivePID(1500); //drive towards roller //1000ish if we want to complete route
     turnPID(180); //turn towards roller
@@ -1396,7 +1398,9 @@ void autonomous(void) {
     ExpansionPnuematics1.on(); //fire expansion
     ExpansionPnuematics2.on(); //fire expansion
 
-    //
+    /*
+
+    */
 
   } else { //Non Roller Side Auton
     if (LimitSwitch.pressing() == false){
