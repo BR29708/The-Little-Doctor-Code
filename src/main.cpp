@@ -110,10 +110,10 @@ double degreesToInches(double ticks){ //Converts Encoder Ticks to Inches Travele
 
 double keepInRange (double n, double low, double high){ //Keeps input value (n) between two defined constraints
   if (n > high){
-    n = high;
+    n = high; //if the number is higher than the max number, set it to the max number
   }
   if (n < low){
-    n = low;
+    n = low; //if the number is lower than the min number, set it to the min number
   }
   return n;
 }
@@ -122,35 +122,35 @@ double distanceTo (double x1, double y1){ //Calculates Distance Between Current 
   return sqrt(pow(globalX - x1, 2) + pow(globalY - y1, 2));
 }
 
-double getRightReading(){
+double getRightReading(){ //gets the reading of the right encoder
   return degreesToInches(EncoderR);
 }
 
-double getLeftReading(){
+double getLeftReading(){ //gets the reading of the left encoder
   return degreesToInches(EncoderL);
 }
 
-double getBackReading(){
+double getBackReading(){ //gets the reading of the back encoder
   return degreesToInches(EncoderB);
 }
 
 bool isStopped(){ //Checks to see if Robot isn't moving: Makes sure it doens't run into walls (COULD ENCOUNTER PROBLEMS!)
 
   if (fabs(deltaR) < 0.001 && fabs(deltaL) < 0.001){
-    stopTime += 1;
+    stopTime += 1; //increases stop time for every cycle tha the encoders are not changing values
   } else {
     stopTime = 0;
   }
-  if (stopTime == 50){
-    return true;
-  } else {
-    return false;
+  if (stopTime == 50){ //if stopped for 50 ticks...
+    return true; //return true, stop motors
+  } else { //else...
+    return false; //return false, continue motors
   }
 
 }
 
 double getRobotRotation(){ //Gets robot orientation in degrees
-  return -Gyro.orientation(yaw, degrees); //Negative because of weird trig math, left is positive, right is negative
+  return -Gyro.orientation(yaw, degrees); //Negative because when working in radians, left is positive, right is negative
 }
 
 double getRobotRadians(){ //Gets robot orientation in radians
@@ -172,32 +172,32 @@ double angleWrap(double angle){
 
 double getDegToPosition(double x, double y){ //Find Angle That points to the desired point
 
-  double relativeX = x - globalX;
-  double relativeY = y - globalY;
+  double relativeX = x - globalX; //get the relative distance between the robots coordinates and the desired point
+  double relativeY = y - globalY; 
 
-  double degToPosition = toDegrees * atan2(relativeY, relativeX);
+  double degToPosition = toDegrees * atan2(relativeY, relativeX); //find the necessary angle to turn to to face the desired point 
   
-  degToPosition = angleWrap(degToPosition);
+  degToPosition = angleWrap(degToPosition); //angle wrap so we turn less
 
-  return degToPosition;
+  return degToPosition; //return angle
 
 }
 
 //Movement Functions
 
-void leftDrive(double power) {
+void leftDrive(double power) { //drive the left motors based on the power variable
   LBMotor.spin(fwd, power, pct);
   LMMotor.spin(fwd, power, pct);
   LFMotor.spin(fwd, power, pct);
 }
 
-void rightDrive(double power){
+void rightDrive(double power){ //drive the right motors based on the power variable
   RMMotor.spin(fwd, power, pct);
   RFMotor.spin(fwd, power, pct);
   RBMotor.spin(fwd, power, pct);
 }
 
-void drive(double power){
+void drive(double power){ //drive both right and left motors based on the power variable
   RMMotor.spin(fwd, power, pct);
   RFMotor.spin(fwd, power, pct);
   RBMotor.spin(fwd, power, pct);
@@ -206,7 +206,7 @@ void drive(double power){
   LFMotor.spin(fwd, power, pct);
 }
 
-void stopDrive(){
+void stopDrive(){ //stop the drive and set all motors to coast
   RMMotor.stop(coast);
   RBMotor.stop(coast);
   RFMotor.stop(coast);
@@ -220,52 +220,56 @@ void stopDrive(){
 
 //--------------------------------Auton Selection----------------------------------//
 
-void drawRectangles() {
+void drawRectangles() { //Function to draw rectangles to the screen for the Auton selector
 
-  Brain.Screen.clearScreen();
+  Brain.Screen.clearScreen(); //clears screen every cycle to make sure we don't draw over the top of each other
 
-  if (redAuton == true){
+  if (redAuton == true){ //if our allinace color is red...
     //Red Button
-    Brain.Screen.setFillColor(green);
+    Brain.Screen.setFillColor(green); //set the red square to green
     Brain.Screen.drawRectangle(0, 0, 240, 136);
     //Blue Button
-    Brain.Screen.setFillColor(blue);
+    Brain.Screen.setFillColor(blue); //set the blue button ot blue
     Brain.Screen.drawRectangle(240, 0, 240, 136);
 
     
 
     //Red Text 
-    Brain.Screen.setFillColor(green); 
+    Brain.Screen.setFillColor(green); //print the text that says "red" over the button
     Brain.Screen.setPenColor(white); 
     Brain.Screen.printAt(100, 68, "Red");
     //Blue Text 
-    Brain.Screen.setFillColor(blue); 
+    Brain.Screen.setFillColor(blue); //print text that says "blue" over the button
     Brain.Screen.printAt(340, 68, "Blue");
 
-  } else {
+  } else { //if our allinace color is blue...
     //Red Button
-    Brain.Screen.setFillColor(red);
+    Brain.Screen.setFillColor(red); //set the red square to red
     Brain.Screen.drawRectangle(0, 0, 240, 136);
     //Blue Button
-    Brain.Screen.setFillColor(green);
+    Brain.Screen.setFillColor(green); //set the blue square to blue
     Brain.Screen.drawRectangle(240, 0, 240, 136);
 
     //Red Text 
-    Brain.Screen.setFillColor(red); 
+    Brain.Screen.setFillColor(red); //print the text that says "red" over the button
     Brain.Screen.setPenColor(white); 
     Brain.Screen.printAt(100, 68, "Red");
     //Blue Text 
-    Brain.Screen.setFillColor(green); 
+    Brain.Screen.setFillColor(green); //print the text that says "blue" over the button
     Brain.Screen.printAt(340, 68, "Blue");
 
   }
-  if (rollerSide == true) {
+  if (rollerSide == true) { //if the roller side (left side) auton is selected...
+    //draw roller side button, set it to green
     Brain.Screen.setFillColor(green);
     Brain.Screen.drawRectangle(0, 136, 120, 136);
+    //draw both side button
     Brain.Screen.setFillColor(white);
     Brain.Screen.drawRectangle(120, 136, 120, 136);
+    //draw non-roller side button
     Brain.Screen.setFillColor(white);
     Brain.Screen.drawRectangle(240, 136, 120, 136);
+    //draw skills button
     Brain.Screen.setFillColor(white);
     Brain.Screen.drawRectangle(360, 136, 120, 136);
 
@@ -289,13 +293,17 @@ void drawRectangles() {
 
 
 
-  } if (bothSides == true){
+  } if (bothSides == true){ //if both sides auton is selected...
+    //draw roller side button
     Brain.Screen.setFillColor(white);
     Brain.Screen.drawRectangle(0, 136, 120, 136);
+    //draw both sides button, set it to green
     Brain.Screen.setFillColor(green);
     Brain.Screen.drawRectangle(120, 136, 120, 136);
+    //draw non-roller side auton
     Brain.Screen.setFillColor(white);
     Brain.Screen.drawRectangle(240, 136, 120, 136);
+    //draw skills button
     Brain.Screen.setFillColor(white);
     Brain.Screen.drawRectangle(360, 136, 120, 136);
 
@@ -316,13 +324,17 @@ void drawRectangles() {
     Brain.Screen.setPenColor(black); 
     Brain.Screen.printAt(370, 190, "Skills");
 
-  } else if (bothSides == false && rollerSide == false && skills == false){
+  } else if (bothSides == false && rollerSide == false && skills == false){ //if non-roller side (right side) auton is selected...
+    //draw roller side button
     Brain.Screen.setFillColor(white);
     Brain.Screen.drawRectangle(0, 136, 120, 136);
+    //draw both sides button
     Brain.Screen.setFillColor(white);
     Brain.Screen.drawRectangle(120, 136, 120, 136);
+    //draw non roller side button, color it green
     Brain.Screen.setFillColor(green);
     Brain.Screen.drawRectangle(240, 136, 120, 136);
+    //draw skills button
     Brain.Screen.setFillColor(white);
     Brain.Screen.drawRectangle(360, 136, 120, 136);
 
@@ -343,14 +355,17 @@ void drawRectangles() {
     Brain.Screen.setPenColor(black); 
     Brain.Screen.printAt(370, 190, "Skills");
 
-  } else if (skills == true) {
-
+  } else if (skills == true) { //if skills auton is selected...
+    //draw roller side button
     Brain.Screen.setFillColor(white);
     Brain.Screen.drawRectangle(0, 136, 120, 136);
+    //draw both sides button
     Brain.Screen.setFillColor(white);
     Brain.Screen.drawRectangle(120, 136, 120, 136);
+    //draw non roller side button
     Brain.Screen.setFillColor(white);
     Brain.Screen.drawRectangle(240, 136, 120, 136);
+    //draw skills button, color it green
     Brain.Screen.setFillColor(green);
     Brain.Screen.drawRectangle(360, 136, 120, 136);
 
@@ -375,42 +390,42 @@ void drawRectangles() {
 
 }
 
-void ButtonPressed(){
+void ButtonPressed(){ //function that is tied to when the screen is pressed. Finds which button was pressed and sets variables accordingly
 
-  double xPos = Brain.Screen.xPosition();
-  double yPos = Brain.Screen.yPosition();
+  double xPos = Brain.Screen.xPosition(); //gets the x-position of where the screen was pressed
+  double yPos = Brain.Screen.yPosition(); //gets the x-position of where the screen was pressed
 
-  if (yPos >= 0 && yPos < 136){
+  if (yPos >= 0 && yPos < 136){ //if the cursor is in the top half of the screen...
 
-    if (xPos >= 0 && xPos < 240){
-      redAuton = true;
-    } else {
-      redAuton = false;
+    if (xPos >= 0 && xPos < 240){ //if the cursor is in the red button area..
+      redAuton = true; //set the allinace color to red
+    } else { //if the cursor is in the blue button area...
+      redAuton = false; //set the alliance color to blue
     }
 
-  } else {
+  } else { //if the cursor is on the bottom half of the screen 
 
-    if (xPos >= 0 && xPos < 120){
-      rollerSide = true;
-      bothSides = false;
+    if (xPos >= 0 && xPos < 120){ //if the cursor is in the roller side button area...
+      rollerSide = true; //set roller side selected to true
+      bothSides = false; 
       skills = false;
-    } else if (xPos >= 120 && xPos < 240) {
+    } else if (xPos >= 120 && xPos < 240) { //if the cursor is in the both sides button area...
       rollerSide = false;
-      bothSides = true;
+      bothSides = true; //set both side selected to true
       skills = false;
-    } else if (xPos >=240 && xPos < 360){
+    } else if (xPos >=240 && xPos < 360){ //if the cursor is in the non-roller side area... 
+      rollerSide = false;
+      bothSides = false; //set all variables to false, making the non-roller side true
+      skills = false;
+    } else { //if the cursor is in the skills area...
       rollerSide = false;
       bothSides = false;
-      skills = false;
-    } else {
-      rollerSide = false;
-      bothSides = false;
-      skills = true;
+      skills = true; //set skills selected to true
     }
 
   }
     
-    drawRectangles();
+    drawRectangles(); //draw the rectangles using the above function
 
 }
 
@@ -422,8 +437,8 @@ void ButtonPressed(){
 
 //--------------------------------PID for ODOM----------------------------------//
 
-float prevError = 0;
-float totalError = 0;
+float prevError = 0; //Error from previous PID Cycle
+float totalError = 0; //
 float der = 0;
 float heading = 0;
 
@@ -869,13 +884,13 @@ void passTargetRev (double maxFwdSpeed, double maxTurnSpeed) { //Passes Target: 
 //---------------------------------------------- OLD PID FUNCTIONS -------------------------------------------------------//
 
 //drivePID Tuning Values
-double kP = 0.06;
-double kI = 0.0000001;
-double kD = 0.0003;
+double kP = 0.06; //tuning value for potential
+double kI = 0.0000001; //tuning value for integral
+double kD = 0.0003; //tuning value for derivitive
 
 //TurnPID Tuning Values
 double turnkP = 0.1;
-double turnkI = 0.01; //0.00000000000000000001
+double turnkI = 0.01; //0.00000000000000000001 (previous value)
 double turnkD = 0.0003;
 
 //driftPID Tuning Values
@@ -885,14 +900,21 @@ double dkD = 0.0003;
 
 float error; //Sensor Value - Desired Value : Position
 
-int ticks = 0;
+int ticks = 0; //makes sure we aren't stopped for too long
 
-double driftError;
-double driftPrevError;
-double driftTotalError;
-double driftDer;
+double driftError; //error value for drift PID 
+double driftPrevError; //previous error value for drift PID
+double driftTotalError; //total error value for drift PID
+double driftDer; //derivitive for drift PID
 
-void drivePID (int desiredValue, int maxSpeed = 12, int errorThreshold = 5){
+/*Drive PID, a function that accelerates a decelerates the robot to drive more precise distances.
+Uses potential, integral, and derivitive values to accelerate the motors and decelerate them accurately
+Parameters: 
+  Desired value - the desired value we want the motors to turn to
+  Max Speed - the maximum speed (in voltage) that the motor should run at.Default is 12 (100%)
+  Error Threshold - the threshold for the error, if the error is below the threshold, stop the function. 
+*/
+void drivePID (int desiredValue, int maxSpeed = 12, int errorThreshold = 5){  
 
   //Reset motor Position
   LMMotor.setPosition(0, degrees);
@@ -902,21 +924,25 @@ void drivePID (int desiredValue, int maxSpeed = 12, int errorThreshold = 5){
   LFMotor.setPosition(0, degrees);
   RFMotor.setPosition(0, degrees);
 
-  int heading = Gyro.orientation(yaw, degrees);
+  int heading = Gyro.orientation(yaw, degrees); //find the current heading of the robot based on the intertial sensor values
 
-  while (true) {
+  while (true) { //while loop that runs the PID
     
-    float leftMotorPosition = (LBMotor.position(degrees) + LFMotor.position(degrees) + LMMotor.position(degrees)) / 3;
-    float rightMotorPosition = (RBMotor.position(degrees) + RFMotor.position(degrees) + RMMotor.position(degrees)) / 3;
-    float averagePosition = (leftMotorPosition + rightMotorPosition) / 2;
-    driftError = heading - Gyro.orientation(yaw, degrees);
+    float leftMotorPosition = (LBMotor.position(degrees) + LFMotor.position(degrees) + LMMotor.position(degrees)) / 3; //averages the left motor values
+    float rightMotorPosition = (RBMotor.position(degrees) + RFMotor.position(degrees) + RMMotor.position(degrees)) / 3; //averages the right motor values
+    float averagePosition = (leftMotorPosition + rightMotorPosition) / 2; //averages left and right motor values for the average position of the robot
+    double integralActiveZone = 10; //only use integral when within a few inches (messes up drive if we don't)
 
     //potential
-    error = averagePosition - desiredValue;
+    error = averagePosition - desiredValue; 
     //derivative
     der = error - prevError;
-
-    double integralActiveZone = 10;
+    //Integral
+    if (fabs(error) < integralActiveZone){ //if the error value is within the integral active zone..
+      totalError += error; //use the integral
+    } else { //else...
+      totalError = 0; //set integral to 0
+    }
 
     //Drift Potential
     driftError = Gyro.orientation(yaw, degrees) - heading;
@@ -925,24 +951,25 @@ void drivePID (int desiredValue, int maxSpeed = 12, int errorThreshold = 5){
     //Drift Integral
     driftTotalError += driftError;
 
-    if (fabs(error) < integralActiveZone){
-      totalError += error;
-    } else {
-      totalError = 0;
-    }
-
+    //Variable that is added or subtracted to each motor speed to keep the robot driving straight. 
+    //Based on the potential, derivitive, and integral of the robot heading
     double motorDifference = (driftError * dkP + driftDer * dkD) * 3; //+ driftTotalError * dkI
 
-    double lateralMotorPower = (error * kP + der * kD + totalError * kI);
+    //Variable that is applied to each motor. This value causes the motors to go move. 
+    //It is affected by the potential, integral, and derivitive to make sure it accelerates and decelerates
+    double lateralMotorPower = (error * kP + der * kD + totalError * kI); 
 
+    //Makes sure the motors are staying within the speed limit (see function parameters)
     lateralMotorPower = keepInRange(lateralMotorPower, -maxSpeed, maxSpeed);
 
+    //Makes sure the motor speed never drops below 2 so we aren't driving extremely slowly forever
     if (lateralMotorPower > 0 && lateralMotorPower < 2){
       lateralMotorPower = 2;
     } else if (lateralMotorPower < 0 && lateralMotorPower > -2){
       lateralMotorPower = -2;
     }
 
+    //spin all the motors, lateral motor power is the base speed, motor difference allows for drift correction
     LMMotor.spin(reverse, lateralMotorPower - motorDifference, voltageUnits::volt);
     LFMotor.spin(reverse, lateralMotorPower - motorDifference, voltageUnits::volt);
     LBMotor.spin(reverse, lateralMotorPower - motorDifference, voltageUnits::volt);
@@ -950,16 +977,20 @@ void drivePID (int desiredValue, int maxSpeed = 12, int errorThreshold = 5){
     RFMotor.spin(reverse, lateralMotorPower + motorDifference, voltageUnits::volt);
     RBMotor.spin(reverse, lateralMotorPower + motorDifference, voltageUnits::volt);
 
+    //print to screen
+    //Print error value
     Brain.Screen.clearScreen();
     Brain.Screen.setCursor(5,5);
     Brain.Screen.setPenColor(green);
     Brain.Screen.print("error = ");
     Brain.Screen.setCursor(5, 10);
     Brain.Screen.print(error);
+    //print speed
     Brain.Screen.setCursor(7,5);
     Brain.Screen.print("Movement Val = ");
     Brain.Screen.setCursor(7, 20);
     Brain.Screen.print(lateralMotorPower);
+    //print derivative
     Brain.Screen.setCursor(6,5);
     Brain.Screen.setPenColor(red);
     Brain.Screen.print("Derivative = ");
@@ -967,26 +998,28 @@ void drivePID (int desiredValue, int maxSpeed = 12, int errorThreshold = 5){
     Brain.Screen.print(der);
 
 
-    prevError = error;
-    driftPrevError = driftError;
-    vex::task::sleep(20);
+    prevError = error; //set previous error for next cycle
+    driftPrevError = driftError; //set drift previous error for next cycle
+    vex::task::sleep(20); //sleep to not overheat the CPU
 
-    if (fabs(error) < errorThreshold){
+    if (fabs(error) < errorThreshold){ //If the error value is under the threshold
       Brain.Screen.setCursor(5, 20);
       Brain.Screen.setPenColor(purple);
-      Brain.Screen.print("Break");
-      break;
+      Brain.Screen.print("Break"); //print break
+      break; //stop the while loop
     }
 
   }
 
+  //Stop all motors once while loop is broken
   LMMotor.stop();
   LFMotor.stop();
   LBMotor.stop();
   RMMotor.stop();
   RBMotor.stop();
   RFMotor.stop();
-  
+
+  //set stopping mode to hold to immediately stop the motors at the correct distance
   LMMotor.setStopping(hold);
   LBMotor.setStopping(hold);
   LFMotor.setStopping(hold);
@@ -994,8 +1027,9 @@ void drivePID (int desiredValue, int maxSpeed = 12, int errorThreshold = 5){
   RMMotor.setStopping(hold);
   RFMotor.setStopping(hold);
 
-  vex::task::sleep(20);
+  vex::task::sleep(20); //wait 20 miliseconds before... 
 
+  //setting all motors to coast in order to not overheat the drive
   LMMotor.setStopping(coast);
   LBMotor.setStopping(coast);
   LFMotor.setStopping(coast);
@@ -1006,6 +1040,12 @@ void drivePID (int desiredValue, int maxSpeed = 12, int errorThreshold = 5){
 
 }
 
+/*Turn PID, a function that accelerates a decelerates the robot to turn to precise angles based on the inertial sensor readings.
+Uses potential, integral, and derivitive values to accelerate the motors and decelerate them accurately
+Parameters: 
+  Desired value - the desired angle we want the robot to turn to
+  Max Speed - the maximum speed (in voltage) that the motor should run at.Default is 12 (100%)
+*/
 void turnPID (int desiredValue, int maxSpeed = 12){
 
   //Reset motor Position
@@ -1016,10 +1056,10 @@ void turnPID (int desiredValue, int maxSpeed = 12){
   LFMotor.setPosition(0, degrees);
   RFMotor.setPosition(0, degrees);
 
-  while (true) {
+  while (true) { //while loop that runs PID loop
 
-    int gyroPosition = Gyro.orientation(yaw, degrees);
-    double integralActiveZone = 30;
+    int gyroPosition = Gyro.orientation(yaw, degrees); //current robot rotation
+    double integralActiveZone = 30; //only use integral when within 30 degrees 
 
     //potential
     error = gyroPosition - desiredValue;
