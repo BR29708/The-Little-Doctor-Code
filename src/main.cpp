@@ -1308,20 +1308,20 @@ void autonomous(void) {
     drivePID(-100, 11); //Drive away from roller
     Intake.spin(forward, 100, vex::velocityUnits::pct); //Spin intake at full speed to intake disc
     turnPID(100, 12); //Turn to face disc on auton line
-    drivePID(142); //drive towards disc
+    drivePID(140); //drive towards disc
     wait(0.5, sec); //delay in order to intake disc
     drivePID(-120, 10); //drive away from disc (-240 before)
     turnPID(88, 11); //turn to face a bit to the right of the triple stack
     Intake.spin(forward, 90, vex::velocityUnits::pct); //Spin intake at full speed to intake disc
-    drivePID(-600, 12); //drive towards the low goal
+    drivePID(-650, 12); //drive towards the low goal
     Intake.spin(forward, 50, vex::velocityUnits::pct);
     turnPID(0); //turn
     drivePID(-350, 12); //drive towards high goal
-    turnPID(-33, 12); //turn to face high goal -------------------
-    drivePID(100);
-    drivePID(-100);
+    turnPID(-31, 12); //turn to face high goal -------------------
+    //drivePID(100);
+    //drivePID(-100);
     Intake.spin(reverse, 100, vex::velocityUnits::pct); //Spin intake at full speed to intake disc
-    drivePID(-115); //drive towards high goal
+    drivePID(-135); //drive towards high goal
     wait(0.2, sec);
     CataPistons.on();
     Intake.stop(); //stop intake
@@ -1334,14 +1334,15 @@ void autonomous(void) {
       firingCata = true;
     }
     Intake.spin(forward, 100, vex::velocityUnits::pct); //start intake 
-    drivePID(400, 12); //drive quickly towards the triple stack and knock it over
+    drivePID(250, 12); //drive quickly towards the triple stack and knock it over
     wait(1, sec);
     //Intake.spin(reverse, 90, vex::velocityUnits::pct); //start intake 
-    //drivePID(-250, 6);
+    drivePID(-250, 6);
     Intake.spin(forward, 100, vex::velocityUnits::pct); //start intake 
-    drivePID(200);
-    wait(1, sec);
-    drivePID(200);
+    drivePID(400);
+    drivePID(300);
+    //drivePID(100);
+    turnPID(35);
     //wait(1, sec);
     //drivePID(100);
     wait(0.2, sec);
