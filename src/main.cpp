@@ -933,6 +933,12 @@ void drivePID (int desiredValue, int maxSpeed = 12, int errorThreshold = 5){
     float averagePosition = (leftMotorPosition + rightMotorPosition) / 2; //averages left and right motor values for the average position of the robot
     double integralActiveZone = 10; //only use integral when within a few inches (messes up drive if we don't)
 
+    //if (desiredValue < 0){
+    //  dkP = 0.025;
+    //} else {
+    //  dkP = 0.005;
+    //}
+
     //potential
     error = averagePosition - desiredValue; 
     //derivative
@@ -1132,19 +1138,19 @@ void turnPID (int desiredValue, int maxSpeed = 12){
 
   }
 
-  LMMotor.stop();
-  LFMotor.stop();
-  LBMotor.stop();
-  RMMotor.stop();
-  RBMotor.stop();
-  RFMotor.stop();
+  LMMotor.stop(coast);
+  LFMotor.stop(coast);
+  LBMotor.stop(coast);
+  RMMotor.stop(coast);
+  RBMotor.stop(coast);
+  RFMotor.stop(coast);
   
-  LMMotor.setStopping(hold);
-  LBMotor.setStopping(hold);
-  LFMotor.setStopping(hold);
-  RBMotor.setStopping(hold);
-  RMMotor.setStopping(hold);
-  RFMotor.setStopping(hold);
+  //LMMotor.setStopping(hold);
+  //LBMotor.setStopping(hold);
+  //LFMotor.setStopping(hold);
+  //RBMotor.setStopping(hold);
+  //RMMotor.setStopping(hold);
+  //RFMotor.setStopping(hold);
 
   vex::task::sleep(20);
 
@@ -1285,8 +1291,6 @@ void autonomous(void) {
   //enableDrivePID = true;
   //vex::task driveForward(drivePID);
 
-  //bookmnark comment to see if I can close this ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
   vex::task t1(cataFire);
   vex::task t2(updatePosition);
 
@@ -1298,23 +1302,26 @@ void autonomous(void) {
     if (LimitSwitch.pressing() == false){
       firingCata = true;
     }
-    Intake.spin(forward, 100, vex::velocityUnits::pct); //Spin intake: 60 percent so it doesn't spin past the screws
+    Intake.spin(forward, 40, vex::velocityUnits::pct); //Spin intake: 60 percent so it doesn't spin past the screws
+    wait(0.2, sec); //wait for intake to speed up
     drivePID(112, 11, 75); //Drive to roller
-    drivePID(-150, 11); //Drive away from roller
+    drivePID(-100, 11); //Drive away from roller
     Intake.spin(forward, 100, vex::velocityUnits::pct); //Spin intake at full speed to intake disc
-    turnPID(103, 12); //Turn to face disc on auton line
-    drivePID(125); //drive towards disc
+    turnPID(100, 12); //Turn to face disc on auton line
+    drivePID(142); //drive towards disc
     wait(0.5, sec); //delay in order to intake disc
-    drivePID(-240, 10); //drive away from disc
-    turnPID(85, 11); //turn to face a bit to the right of the triple stack
+    drivePID(-120, 10); //drive away from disc (-240 before)
+    turnPID(88, 11); //turn to face a bit to the right of the triple stack
     Intake.spin(forward, 90, vex::velocityUnits::pct); //Spin intake at full speed to intake disc
-    drivePID(-580, 12); //drive towards the low goal
+    drivePID(-600, 12); //drive towards the low goal
     Intake.spin(forward, 50, vex::velocityUnits::pct);
     turnPID(0); //turn
-    drivePID(-450, 12); //drive towards high goal
-    turnPID(-36, 12); //turn to face high goal -------------------
+    drivePID(-350, 12); //drive towards high goal
+    turnPID(-33, 12); //turn to face high goal -------------------
+    drivePID(100);
+    drivePID(-100);
     Intake.spin(reverse, 100, vex::velocityUnits::pct); //Spin intake at full speed to intake disc
-    drivePID(-200); //drive towards high goal
+    drivePID(-115); //drive towards high goal
     wait(0.2, sec);
     CataPistons.on();
     Intake.stop(); //stop intake
@@ -1322,18 +1329,32 @@ void autonomous(void) {
     wait(0.2, sec);
     //drivePID(50); //drive back slightly
     CataPistons.off(); 
-    turnPID(38); //turn to face tripple stack
+    turnPID(30); //turn to face tripple stack
+    if (LimitSwitch.pressing() == false){
+      firingCata = true;
+    }
     Intake.spin(forward, 100, vex::velocityUnits::pct); //start intake 
-    drivePID(280, 12); //drive slowly towards the triple stack and knock it over
-    wait(0.1, sec);
-    drivePID(-200, 12);
-    drivePID(800, 6); //drive at a moderate speed to intake discs
-    turnPID(40);
-    drivePID(-850); //drive back to firing spot
-    turnPID(-40, 11); //turn to face high goal -------------------------------------------------------------
+    drivePID(400, 12); //drive quickly towards the triple stack and knock it over
+    wait(1, sec);
+    //Intake.spin(reverse, 90, vex::velocityUnits::pct); //start intake 
+    //drivePID(-250, 6);
+    Intake.spin(forward, 100, vex::velocityUnits::pct); //start intake 
+    drivePID(200);
+    wait(1, sec);
+    drivePID(200);
+    //wait(1, sec);
+    //drivePID(100);
+    wait(0.2, sec);
+    //turnPID(15);
+    //drivePID(50);
+    //drivePID(-50);
+    //turnPID(25, 10);
+    drivePID(-700); //drive back to firing spot
+    turnPID(-35, 11); //turn to face high goal -------------------------------------------------------------
     drivePID(-100); //drive towards high goal
     wait(0.1, sec);
     //CataPistons.on(); 
+    CataPistons.on();
     firingCata = true; //fire catapult
     Intake.stop();
     wait(1, sec);
@@ -1349,7 +1370,7 @@ void autonomous(void) {
     drivePID(-85, 11); //Drive away from roller
     Intake.spin(forward, 100, vex::velocityUnits::pct); //Spin intake at full speed to intake disc
     turnPID(-133, 11); //turn to face triple stack
-    drivePID(400, 11); //drive towards triple stack
+    drivePID(450, 11); //drive towards triple stack
     wait(0.5, sec);
     drivePID(75, 8); //knock over triple stack
     drivePID(430, 4); //intake triple stack
@@ -1548,19 +1569,22 @@ void usercontrol(void) {
     Brain.Screen.clearScreen();
 
     //---------------------------------------Drivecode---------------------------------------//
-    double turnVal = Controller1.Axis1.position(pct);
-    double forwardVal = Controller1.Axis3.position(pct) * multiplier;
+    double turnVal = Controller1.Axis1.position(pct); //turn value, based on the value of Axis 1 (right stick left and right axis)
+    double forwardVal = Controller1.Axis3.position(pct) * multiplier; //forward value, based on the value of axis 3 (left stick and up and down axis)
 
-    double turnVolts = turnVal * -0.12;
-    double forwardVolts = forwardVal * 0.12 * (1-(std::abs(turnVolts)/12) * turnImportance);
+    double turnVolts = turnVal * -0.12; //converts axis value into voltage by multiplying it by -0.12 (the motors can go up to 12 volts)
+    /*converts forward axis value to volts by multiplying by 0.12. Also multiplies by the absolute value of turn volts multiplied by the
+    turn importance. This decreases the forward value ammount based on the turning ammount. This allows us to turn and move forward
+    simultaneously, which helps a lot with controling the drive to a precision*/
+    double forwardVolts = forwardVal * 0.12 * (1-(std::abs(turnVolts)/12) * turnImportance); 
 
-
-    LMMotor.spin(fwd, ((forwardVolts - turnVolts) + motorCorrection) , voltageUnits::volt);
-    LFMotor.spin(fwd, ((forwardVolts - turnVolts) + motorCorrection) , voltageUnits::volt);
-    LBMotor.spin(fwd, ((forwardVolts - turnVolts) + motorCorrection) , voltageUnits::volt);
-    RMMotor.spin(fwd, ((forwardVolts +  turnVolts) - motorCorrection), voltageUnits::volt);
-    RFMotor.spin(fwd, ((forwardVolts + turnVolts) - motorCorrection) , voltageUnits::volt);
-    RBMotor.spin(fwd, ((forwardVolts + turnVolts) - motorCorrection) , voltageUnits::volt);
+    //Turn all motors. Left motors are forward volts - turn volts to make the left motors spin in reverse while turning, right motors are opposite
+    LMMotor.spin(fwd, ((forwardVolts - turnVolts)) , voltageUnits::volt);
+    LFMotor.spin(fwd, ((forwardVolts - turnVolts)) , voltageUnits::volt);
+    LBMotor.spin(fwd, ((forwardVolts - turnVolts)) , voltageUnits::volt);
+    RMMotor.spin(fwd, ((forwardVolts +  turnVolts)), voltageUnits::volt);
+    RFMotor.spin(fwd, ((forwardVolts + turnVolts)) , voltageUnits::volt);
+    RBMotor.spin(fwd, ((forwardVolts + turnVolts)) , voltageUnits::volt);
 
     //Motor Speed Calculations
     currentPosition = (LBMotor.position(degrees) + LFMotor.position(degrees) + LMMotor.position(degrees) + RBMotor.position(degrees) + RFMotor.position(degrees) + RMMotor.position(degrees)) / 6;
@@ -1628,17 +1652,17 @@ void usercontrol(void) {
     }
 
     //---------------------------------------Intake---------------------------------------//
-    if (Controller1.ButtonL2.pressing()){
+    if (Controller1.ButtonL2.pressing()){ //if button L2 is being pressed...
 
-      Intake.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct);
+      Intake.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct); //spin the intake forward
 
-    } else if (Controller1.ButtonL1.pressing()){
+    } else if (Controller1.ButtonL1.pressing()){ //if button L1 is being pressed...
 
-      Intake.spin(vex::directionType::rev, 100, vex::velocityUnits::pct);
+      Intake.spin(vex::directionType::rev, 100, vex::velocityUnits::pct); //spin the intake reverse
 
-    } else {
+    } else { //if neither button is being pressed...
 
-      Intake.stop();
+      Intake.stop(); //stop the intake
 
     }
 
