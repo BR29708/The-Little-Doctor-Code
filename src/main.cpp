@@ -1307,21 +1307,21 @@ void autonomous(void) {
     drivePID(112, 11, 75); //Drive to roller
     drivePID(-100, 11); //Drive away from roller
     Intake.spin(forward, 100, vex::velocityUnits::pct); //Spin intake at full speed to intake disc
-    turnPID(100, 12); //Turn to face disc on auton line
-    drivePID(140); //drive towards disc
+    turnPID(108, 12); //Turn to face disc on auton line
+    drivePID(180, 12, 20); //drive towards disc
     wait(0.5, sec); //delay in order to intake disc
-    drivePID(-120, 10); //drive away from disc (-240 before)
+    drivePID(-150, 10); //drive away from disc (-240 before)
     turnPID(88, 11); //turn to face a bit to the right of the triple stack
     Intake.spin(forward, 90, vex::velocityUnits::pct); //Spin intake at full speed to intake disc
-    drivePID(-650, 12); //drive towards the low goal
+    drivePID(-675, 12); //drive towards the low goal
     Intake.spin(forward, 50, vex::velocityUnits::pct);
     turnPID(0); //turn
     drivePID(-350, 12); //drive towards high goal
-    turnPID(-31, 12); //turn to face high goal -------------------
+    turnPID(-37, 12); //turn to face high goal -------------------
     //drivePID(100);
     //drivePID(-100);
     Intake.spin(reverse, 100, vex::velocityUnits::pct); //Spin intake at full speed to intake disc
-    drivePID(-135); //drive towards high goal
+    drivePID(-142); //drive towards high goal
     wait(0.2, sec);
     CataPistons.on();
     Intake.stop(); //stop intake
@@ -1329,18 +1329,20 @@ void autonomous(void) {
     wait(0.2, sec);
     //drivePID(50); //drive back slightly
     CataPistons.off(); 
-    turnPID(30); //turn to face tripple stack
+    turnPID(34); //turn to face tripple stack
     if (LimitSwitch.pressing() == false){
       firingCata = true;
     }
     Intake.spin(forward, 100, vex::velocityUnits::pct); //start intake 
-    drivePID(250, 12); //drive quickly towards the triple stack and knock it over
+    drivePID(265, 12); //drive quickly towards the triple stack and knock it over
     wait(1, sec);
+    drivePID(-250, 7);
+    turnPID(34);
     //Intake.spin(reverse, 90, vex::velocityUnits::pct); //start intake 
-    drivePID(-250, 6);
+    //wait(0.2, sec);
     Intake.spin(forward, 100, vex::velocityUnits::pct); //start intake 
-    drivePID(400);
-    drivePID(300);
+    drivePID(900, 6);
+    //drivePID(300);
     //drivePID(100);
     turnPID(35);
     //wait(1, sec);
@@ -1351,7 +1353,7 @@ void autonomous(void) {
     //drivePID(-50);
     //turnPID(25, 10);
     drivePID(-700); //drive back to firing spot
-    turnPID(-35, 11); //turn to face high goal -------------------------------------------------------------
+    turnPID(-37, 11); //turn to face high goal -------------------------------------------------------------
     drivePID(-100); //drive towards high goal
     wait(0.1, sec);
     //CataPistons.on(); 
