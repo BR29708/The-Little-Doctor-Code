@@ -884,19 +884,23 @@ void passTargetRev (double maxFwdSpeed, double maxTurnSpeed) { //Passes Target: 
 //---------------------------------------------- OLD PID FUNCTIONS -------------------------------------------------------//
 
 //drivePID Tuning Values
-double kP = 0.06; //tuning value for potential
-double kI = 0.0000001; //tuning value for integral
-double kD = 0.0003; //tuning value for derivitive
+double kP = 0.03; //tuning value for potential 0.05
+double kI = 0.000000001; //tuning value for integral 0.0000001
+double kD = 0.031; //tuning value for derivitive 0.0004
+
+//stopping values
+double lastPosition;
+double stopTimer;
 
 //TurnPID Tuning Values
-double turnkP = 0.1;
-double turnkI = 0.01; //0.00000000000000000001 (previous value)
-double turnkD = 0.0003;
+double turnkP = 0.1; //0.1
+double turnkI = 0.000001; //0.01 //0.00000000000000000001 (previous value)
+double turnkD = 0.05; //0.01
 
 //driftPID Tuning Values
-double dkP = 0.005;
-double dkI = 0.00000000001;
-double dkD = 0.0003;
+double dkP = 0.004; //0.009
+double dkI = 0; //0.00000000001
+double dkD = 0.015; //0.01
 
 float error; //Sensor Value - Desired Value : Position
 
@@ -931,7 +935,7 @@ void drivePID (int desiredValue, int maxSpeed = 12, int errorThreshold = 5){
     float leftMotorPosition = (LBMotor.position(degrees) + LFMotor.position(degrees) + LMMotor.position(degrees)) / 3; //averages the left motor values
     float rightMotorPosition = (RBMotor.position(degrees) + RFMotor.position(degrees) + RMMotor.position(degrees)) / 3; //averages the right motor values
     float averagePosition = (leftMotorPosition + rightMotorPosition) / 2; //averages left and right motor values for the average position of the robot
-    double integralActiveZone = 10; //only use integral when within a few inches (messes up drive if we don't)
+    double integralActiveZone = 100; //only use integral when within a few inches (messes up drive if we don't)
 
     //if (desiredValue < 0){
     //  dkP = 0.025;
@@ -983,6 +987,21 @@ void drivePID (int desiredValue, int maxSpeed = 12, int errorThreshold = 5){
     RFMotor.spin(reverse, lateralMotorPower + motorDifference, voltageUnits::volt);
     RBMotor.spin(reverse, lateralMotorPower + motorDifference, voltageUnits::volt);
 
+    if (fabs(averagePosition - lastPosition) <= 5){
+
+      stopTime ++;
+
+      if (stopTime >= 100){
+        break;
+      }
+
+    } else {
+
+      stopTime = 0;
+
+    }
+
+
     //print to screen
     //Print error value
     Brain.Screen.clearScreen();
@@ -1005,6 +1024,7 @@ void drivePID (int desiredValue, int maxSpeed = 12, int errorThreshold = 5){
 
 
     prevError = error; //set previous error for next cycle
+    lastPosition = averagePosition;
     driftPrevError = driftError; //set drift previous error for next cycle
     vex::task::sleep(20); //sleep to not overheat the CPU
 
@@ -1052,7 +1072,7 @@ Parameters:
   Desired value - the desired angle we want the robot to turn to
   Max Speed - the maximum speed (in voltage) that the motor should run at.Default is 12 (100%)
 */
-void turnPID (int desiredValue, int maxSpeed = 12){
+void turnPID (int desiredValue, int maxSpeed = 12, double tkP = 0.1){
 
   //Reset motor Position
   LMMotor.setPosition(0, degrees);
@@ -1066,6 +1086,8 @@ void turnPID (int desiredValue, int maxSpeed = 12){
 
     int gyroPosition = Gyro.orientation(yaw, degrees); //current robot rotation
     double integralActiveZone = 30; //only use integral when within 30 degrees 
+
+    turnkP = tkP;
 
     //potential
     error = gyroPosition - desiredValue;
@@ -1178,7 +1200,7 @@ int cataFire(){
       limitSwitchCan = limitSwitchCan + 1;
       Cata.setStopping(hold);
 
-      if (LimitSwitch.pressing() && limitSwitchCan >= 10){
+      if (LimitSwitch.pressing() && limitSwitchCan >= 30){
         limitSwitchCan = 0;
         Cata.stop();
         firingCata = false;
@@ -1294,9 +1316,9 @@ void autonomous(void) {
   vex::task t1(cataFire);
   vex::task t2(updatePosition);
 
-  rollerSide = true;
-  //bothSides = false;
-  //skills = true;
+  //rollerSide = true;
+  bothSides = false;
+  skills = true;
 
   if (rollerSide == true){ //Roller Side Auton
     if (LimitSwitch.pressing() == false){
@@ -1305,57 +1327,65 @@ void autonomous(void) {
     Intake.spin(forward, 40, vex::velocityUnits::pct); //Spin intake: 60 percent so it doesn't spin past the screws
     wait(0.2, sec); //wait for intake to speed up
     drivePID(112, 11, 75); //Drive to roller
-    drivePID(-100, 11); //Drive away from roller
+    drivePID(-80, 12); //Drive away from roller
     Intake.spin(forward, 100, vex::velocityUnits::pct); //Spin intake at full speed to intake disc
-    turnPID(108, 12); //Turn to face disc on auton line
-    drivePID(180, 12, 20); //drive towards disc
+    turnPID(117, 12); //Turn to face disc on auton line
+    drivePID(172, 12, 50); //drive towards disc
     wait(0.5, sec); //delay in order to intake disc
-    drivePID(-150, 10); //drive away from disc (-240 before)
+    drivePID(-170, 10); //drive away from disc (-240 before)
     turnPID(88, 11); //turn to face a bit to the right of the triple stack
     Intake.spin(forward, 90, vex::velocityUnits::pct); //Spin intake at full speed to intake disc
-    drivePID(-675, 12); //drive towards the low goal
-    Intake.spin(forward, 50, vex::velocityUnits::pct);
+    drivePID(-680, 12); //drive towards the low goal
+    //Intake.spin(forward, 50, vex::velocityUnits::pct);
     turnPID(0); //turn
-    drivePID(-350, 12); //drive towards high goal
-    turnPID(-37, 12); //turn to face high goal -------------------
+    drivePID(-335, 12); //drive towards high goal
+    turnPID(-34, 12); //turn to face high goal -------------------
     //drivePID(100);
     //drivePID(-100);
     Intake.spin(reverse, 100, vex::velocityUnits::pct); //Spin intake at full speed to intake disc
     drivePID(-142); //drive towards high goal
-    wait(0.2, sec);
+    //wait(0.1, sec);
     CataPistons.on();
     Intake.stop(); //stop intake
     firingCata = true; //fire catapult
     wait(0.2, sec);
     //drivePID(50); //drive back slightly
+    
+    turnPID(41); //turn to face tripple stack
     CataPistons.off(); 
-    turnPID(34); //turn to face tripple stack
     if (LimitSwitch.pressing() == false){
       firingCata = true;
     }
     Intake.spin(forward, 100, vex::velocityUnits::pct); //start intake 
-    drivePID(265, 12); //drive quickly towards the triple stack and knock it over
-    wait(1, sec);
-    drivePID(-250, 7);
-    turnPID(34);
+    drivePID(285, 12); //drive quickly towards the triple stack and knock it over
+    wait(0.3, sec);
+    //Intake.spin(reverse, 90, vex::velocityUnits::pct); //start intake 
+    drivePID(-255, 9);
+    turnPID(52);
     //Intake.spin(reverse, 90, vex::velocityUnits::pct); //start intake 
     //wait(0.2, sec);
     Intake.spin(forward, 100, vex::velocityUnits::pct); //start intake 
-    drivePID(900, 6);
-    //drivePID(300);
-    //drivePID(100);
-    turnPID(35);
+    //drivePID(935, 5);
+    wait(0.3, sec);
+    drivePID(275, 7);
+    wait(0.1, sec);
+    turnPID(52);
+    drivePID(195, 12);
+    wait(0.3, sec);
+    drivePID(400, 12);
+    turnPID(40);
     //wait(1, sec);
     //drivePID(100);
-    wait(0.2, sec);
+    wait(0.1, sec);
     //turnPID(15);
     //drivePID(50);
     //drivePID(-50);
     //turnPID(25, 10);
     drivePID(-700); //drive back to firing spot
-    turnPID(-37, 11); //turn to face high goal -------------------------------------------------------------
-    drivePID(-100); //drive towards high goal
-    wait(0.1, sec);
+    turnPID(-31, 11); //turn to face high goal -------------------------------------------------------------
+    Intake.spin(reverse, 100, vex::velocityUnits::pct);
+    drivePID(-50); //drive towards high goal 130 before
+    //wait(0.1, sec);
     //CataPistons.on(); 
     CataPistons.on();
     firingCata = true; //fire catapult
@@ -1363,33 +1393,58 @@ void autonomous(void) {
     wait(1, sec);
     CataPistons.off();
   } else if (bothSides == true){ //Both Sides Auton
+    
+    //drivePID(500);
+    //turnPID(90);
+    //wait(20, sec);
+    //drivePID(200);
+    //turnPID(-32);
+    //drivePID(50);
+    //drivePID(200);
+    //drivePID(200);
+    //turnPID(-100);
+    //drivePID(100);
+    //wait(20, sec);
+
     if (LimitSwitch.pressing() == false){
       firingCata = true;
     }
-    Intake.spin(forward, 60, vex::velocityUnits::pct); //Spin intake: 60 percent so it doesn't spin past the screws
-    wait(0.1, sec); //Delay slightly so it gets up to speed
+    Intake.spin(forward, 33, vex::velocityUnits::pct); //Spin intake: 60 percent so it doesn't spin past the screws
+    wait(0.2, sec); //Delay slightly so it gets up to speed
     drivePID(112, 11, 75); //Drive to roller
-    wait(0.2, sec); //wait for roller to spin
-    drivePID(-85, 11); //Drive away from roller
+    wait(0.2, sec);
+    drivePID(-80); //Drive away from roller
     Intake.spin(forward, 100, vex::velocityUnits::pct); //Spin intake at full speed to intake disc
-    turnPID(-133, 11); //turn to face triple stack
-    drivePID(450, 11); //drive towards triple stack
+    turnPID(-129); //turn to face triple stack
+    drivePID(530); //drive towards triple stack
     wait(0.5, sec);
-    drivePID(75, 8); //knock over triple stack
-    drivePID(430, 4); //intake triple stack
-    turnPID(-35, 11); //turn to face high goal --------------------------
-    drivePID(-50); //drive towards high goal
-    wait(0.5, sec);
-    turnPID(-80, 11);
-    turnPID(-35);
-    wait(1.5, sec);
+    drivePID(-200, 6);
+    //drivePID(430, 4); //intake triple stack
+    wait(0.1, sec);
+    drivePID(200);
+    wait(0.2, sec);
+    drivePID(200);
+    wait(0.3, sec);
+    drivePID(180);
+    turnPID(-45, 11); //turn to face high goal --------------------------
+    drivePID(200, 12, 160);
+    drivePID(-200, 12, 160);
+    drivePID(200, 12, 160);
+    //drivePID(-200, 12, 160);
+    Intake.spin(reverse, 100, vex::velocityUnits::pct);
+    drivePID(-130); //drive towards high goal
+    //wait(0.5, sec);
+    //turnPID(-80, 11);
+    //turnPID(-35);
+    //wait(0.2, sec);
     CataPistons.on();
     firingCata = true; //fire goal 
     wait(0.5, sec);
     CataPistons.off();
+    Intake.spin(forward, 100, vex::velocityUnits::pct);
     drivePID(75); //drive away from high goal
-    turnPID(-128, 11); //turn to face triple line
-    drivePID(1200, 6); //intake triple line 
+    turnPID(-136); //turn to face triple line
+    drivePID(1425, 7); //intake triple line 
     wait(0.5, sec);
     //drivePID(-1000); //drive back to high goal
     //turnPID(-50); //turn to face high goal --------------------
@@ -1400,10 +1455,11 @@ void autonomous(void) {
     //wait(0.5, sec);
     //CataPistons.off(); 
     //drivePID(100); //drive away from high goal
-    turnPID(-130); //turn to face roller
+    //turnPID(-160); //turn to face roller
     wait(0.1, sec);
     Intake.spin(forward, 70, vex::velocityUnits::pct);
-    drivePID(600); //drive and spin other roller (1400 before)
+    turnPID(-87);
+    //drivePID(600); //drive and spin other roller (1400 before)
     wait(1, sec);
     drivePID(200);
     turnPID(-90);
@@ -1414,68 +1470,132 @@ void autonomous(void) {
     }
     Intake.spin(forward, 100, vex::velocityUnits::pct); //Spin intake: 80 percent so it doesn't spin back to blue
     wait(0.1, sec); //Delay slightly so it gets up to speed
-    drivePID(110, 11, 75); //Drive to roller
-    wait(1.5, sec); //wait for roller to spin
+    //drivePID(29);
+    drivePID(180, 11, 145); //Drive to roller
+    wait(0.2, sec); //wait for roller to spin
+    Intake.spin(forward, 40, vex::velocityUnits::pct);
+    drivePID(-100);
+    drivePID(200, 11, 145); //Drive to roller
+    wait(0.2, sec);
     drivePID(-150); //Drive away from roller
     Intake.spin(forward, 100, vex::velocityUnits::pct); //Spin intake at full speed to intake disc
     wait(0.1, sec);
 
-    turnPID(110, 6); //Turn to face disc on auton line
-    drivePID(150); //drive towards disc
+    turnPID(110); //Turn to face disc on auton line
+    drivePID(200); //drive towards disc
     
-    turnPID(135); //turn towards roller
-    wait(1, sec);
-    drivePID(255); //drive towards roller
-    turnPID(90); //face roller
-    drivePID(230, 8); //spin roller
-    wait(1, sec);
+    turnPID(135, 12, 0.15); //turn towards 2nd roller
+    //wait(1, sec);
+    Intake.spin(forward, 70, vex::velocityUnits::pct);
+    drivePID(230); //drive towards 2nd roller
+    turnPID(90, 12, 0.12); //face roller
+    drivePID(185, 8); //spin roller
+    //wait(0.3, sec);
     drivePID(-90); //drive away from roller
+    Intake.spin(forward, 100, vex::velocityUnits::pct);
 
-    turnPID(0); //turn towards high goal
-    drivePID(-900, 11); //drive towards high goal
-    turnPID(-7); //turn to face high goal
+    turnPID(-1); //turn towards high goal
+    drivePID(-990, 9); //drive towards high goal
+    turnPID(15, 12, 0.15); //turn to face high goal
     wait(0.5, sec);
-    firingCata = true; //fire catapult
+    firingCata = true; //fire catapult ------------------------------------------------------------------- 1st shot
     wait(0.5, sec);
-    turnPID(-5); //turn to face foward
+    turnPID(-10, 12, 0.13); //turn to face foward
     
-    drivePID(720, 10); //drive to where we should be for triple line
-    turnPID(-137); //turn to face triple line
-    drivePID(1100, 3); //drive and intake triple line
+    drivePID(845, 10); //drive to where we should be for triple line
+    turnPID(-132); //turn to face triple line
+    //drivePID(400);
+    //drivePID(400); //was used for picking up tripple line, wasn't as consistent as driving slowly
+    //drivePID(400);
+    drivePID(1300, 5); //drive and intake triple line
     wait(1, sec); //wait to intake third disc
     
-    turnPID(-45); //turn to face high goal
-    drivePID(-75);
+    turnPID(-50); //turn to face high goal
+    drivePID(-100);
+    firingCata = true; //fire catapult ------------------------------------------------------------------- 2nd shot
     wait(0.5, sec);
-    firingCata = true; //fire catapult
-    wait(0.5, sec);
-    drivePID(75);
+    drivePID(85);
     
     turnPID(-135); //turn to face triple stack
     drivePID(600, 8); //drive slow and knock over triple stack
     wait(0.5, sec);
-    drivePID(500, 4); //drive at a moderate speed to intake discs
+    drivePID(-200, 4);
+    wait(0.5, sec);
+    drivePID(200);
+    wait(0.5, sec);
+    drivePID(200);
+    wait(0.6, sec);
+    drivePID(300);
+    turnPID(-180); //turn to face roller
+    drivePID(160); //drive towards and spin roller
+    drivePID(-100); //drive away from roller
+    //drivePID(500, 4); //drive at a moderate speed to intake discs
     wait(1, sec); //wait to intake discs
 
-    turnPID(-100); //turn to face high goal
-    drivePID(-700); //drive towards high goal
+    turnPID(-87, 12, 0.12); //turn to face high goal
+    drivePID(-760); //drive towards high goal
     turnPID(-100); //turn to face high goal
     wait(0.5, sec);
-    firingCata = true; //fire catapult
+    firingCata = true; //fire catapult ------------------------------------------------------------------- 3rd shot
     wait(0.5, sec);
     turnPID(-87);
 
-    drivePID(950); //drive towards roller //1000ish if we want to complete route
-    turnPID(-180); //turn towards roller
-    drivePID(130); //spin roller
-    wait(0.2, sec);
-    drivePID(-250); //drive to 4 tiles
+    drivePID(800); //drive towards 4th tripple stack
+    turnPID(-45, 6); //turn to face tripple stack
+    drivePID(200); //knock over tripple stack
+    wait(0.5, sec);
+    drivePID(-200, 4); //drive back
+    wait(0.5, sec);
+    drivePID(200); //intake 
+    wait(0.5, sec);
+    drivePID(200); //intake
+    wait(0.6, sec);
+    drivePID(-300); //drive back to 4 tiles
     
-    turnPID(-90);
-    drivePID(100);
+    turnPID(-90); //turn towards roller
+    Intake.spin(forward, 70, vex::velocityUnits::pct);
+    drivePID(380); //drive to and spin roller
+    wait(0.2, sec);
+    drivePID(-100); //drive away from roller
 
-    turnPID(-135); //turn to face field
-    drivePID(100);
+    turnPID(-181); //turn towards high goal
+    drivePID(-990); //drive towards high goal
+    turnPID(-170, 12, 1.3); //turn to face high goal
+    wait(0.5, sec);
+    firingCata = true; //fire catapult ------------------------------------------------------------------- 4th shot
+    wait(0.5, sec);
+
+    drivePID(845); //drive to where we should be for tripple line
+    turnPID(45, 8); //turn to face tripple line
+    wait(0.2, sec);
+    drivePID(1300); //drive and intake tripple line
+    
+    turnPID(135); //turn to face high goal
+    drivePID(-100); //drive towards high goal
+    firingCata = true; //fire catapult ------------------------------------------------------------------- 5th shot
+    wait(0.5, sec);
+    drivePID(-85); //drive away from high goal
+
+    turnPID(45); //turn to face tripple stack
+    drivePID(600, 8); //drive slow and knock over triple stack
+    wait(0.5, sec);
+    drivePID(-200, 4);
+    wait(0.5, sec);
+    drivePID(200);
+    wait(0.5, sec);
+    drivePID(200);
+    wait(0.6, sec); 
+    turnPID(90); //turn towards high goal
+    drivePID(-760); //drive towards high goal
+    turnPID(80, 12, 1.3); //turn to face high goal
+    firingCata = true; //fire catapult ------------------------------------------------------------------- 6th shot
+    wait(0.5, sec);
+    
+    turnPID(90, 12, 1.3); //turn to face 4 tiles
+    drivePID(800);
+
+    turnPID(45); //turn to face field
+    //drivePID(100);
     ExpansionPnuematics1.off(); //fire expansion
     ExpansionPnuematics2.off(); //fire expansion
 
@@ -1488,33 +1608,40 @@ void autonomous(void) {
       firingCata = true;
     }
     Intake.spin(forward, 100, vex::velocityUnits::pct); //Spin intake to intake disc
-    drivePID(400, 8); //drive towards disc
+    drivePID(500, 8); //drive towards disc
     wait(0.1, sec);
-    turnPID(-150, 10); //turn to face high goal --------------------------------------------------------------
-    wait(2, sec);
-    drivePID(-150, 12, 110); //drive towards high goal in at quick speed to add more velocity to discs
-    CataPistons.on();
-    firingCata = true; //fire catapult
-    wait(0.5, sec);
-    drivePID(25); //drive away from high goal
-    CataPistons.off();
-    turnPID(45, 6); //turn to face disc on auton line
-    drivePID(150, 10); //drive towards and intake disc
-    wait(0.5, sec); //delay to intake disc
-    drivePID(-100); //drive back
-    turnPID(-45, 6); //turn to face double line (already intaked the first)
-    drivePID(800, 6); //drive and intake double line
+    //turnPID(-150, 10); //turn to face high goal --------------------------------------------------------------
+    //wait(2, sec);
+    //drivePID(-150, 12, 110); //drive towards high goal in at quick speed to add more velocity to discs
+    //CataPistons.on();
+    //firingCata = true; //fire catapult
+    //wait(0.5, sec);
+    //drivePID(25); //drive away from high goal
+    //CataPistons.off();
+    //turnPID(45, 6); //turn to face disc on auton line
+    //drivePID(150, 10); //drive towards and intake disc
+    //wait(0.5, sec); //delay to intake disc
+    //drivePID(-100); //drive back
+    turnPID(-42, 6); //turn to face double line (already intaked the first)
+    drivePID(600, 6); //drive and intake double line
     wait(1, sec); //delay to intake discs
     turnPID(-135, 7); //turn to face high goal --------------------------------------------------------------
     drivePID(-50); //drive towards high goal
+    drivePID(150);
+    drivePID(-150);
     wait(0.5, sec);
     CataPistons.on();
     firingCata = true; //fire catapult
     wait(0.5, sec);
     CataPistons.off();
-    drivePID(100); //drive away from goal
-    turnPID(126, 10); //turn to face 
+    drivePID(50); //drive away from goal
+    turnPID(136, 6); //turn to face 
     drivePID(1300); //drive to and spin roller
+    Intake.spin(forward, 60, vex::velocityUnits::pct);
+    wait(1, sec);
+    drivePID(100);
+    wait(1, sec);
+    Intake.stop();
   }
   
   
@@ -1562,6 +1689,7 @@ void usercontrol(void) {
 
   bool motorCoast = true;
 
+  int intakeSpeed = 100;
 
   //Sensor Variables
   bool bDetect; //Vision Sensor is Detecting Object
@@ -1620,7 +1748,7 @@ void usercontrol(void) {
 
     } else if (Controller1.ButtonDown.pressing()){
 
-      motorCoast = false;
+      //motorCoast = false;
 
     }
 
@@ -1657,17 +1785,26 @@ void usercontrol(void) {
     //---------------------------------------Intake---------------------------------------//
     if (Controller1.ButtonL2.pressing()){ //if button L2 is being pressed...
 
-      Intake.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct); //spin the intake forward
+      Intake.spin(vex::directionType::fwd, intakeSpeed, vex::velocityUnits::pct); //spin the intake forward
 
     } else if (Controller1.ButtonL1.pressing()){ //if button L1 is being pressed...
 
-      Intake.spin(vex::directionType::rev, 100, vex::velocityUnits::pct); //spin the intake reverse
+      Intake.spin(vex::directionType::rev, intakeSpeed, vex::velocityUnits::pct); //spin the intake reverse
 
     } else { //if neither button is being pressed...
 
       Intake.stop(); //stop the intake
 
     }
+
+    if (Controller1.ButtonX.pressing()){
+      intakeSpeed = 60;
+    }
+
+    if (Controller1.ButtonDown.pressing()){
+      intakeSpeed = 100;
+    }
+
 
     //---------------------------------------Expansion---------------------------------------//
     if (Controller1.ButtonB.pressing()){
@@ -1759,10 +1896,7 @@ void usercontrol(void) {
     }
 
     //Coast Hardstop
-    if (Controller1.ButtonX.pressing()){
-      bCoast = false;
-    }
-
+    
     //Manual Cata
     if (Controller1.ButtonUp.pressing()){
       Cata.spin(vex::directionType::rev, 100, vex::velocityUnits::pct);
