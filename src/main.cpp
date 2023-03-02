@@ -991,7 +991,7 @@ void drivePID (int desiredValue, int maxSpeed = 12, int errorThreshold = 5){
 
       stopTime ++;
 
-      if (stopTime >= 100){
+      if (stopTime >= 50){
         break;
       }
 
@@ -1496,28 +1496,28 @@ void autonomous(void) {
 
     turnPID(-1); //turn towards high goal
     drivePID(-990, 9); //drive towards high goal
-    turnPID(15, 12, 0.15); //turn to face high goal
+    turnPID(14, 12, 0.17); //turn to face high goal
     wait(0.5, sec);
     firingCata = true; //fire catapult ------------------------------------------------------------------- 1st shot
     wait(0.5, sec);
-    turnPID(-10, 12, 0.13); //turn to face foward
+    turnPID(-10, 12, 0.17); //turn to face foward
     
-    drivePID(845, 10); //drive to where we should be for triple line
+    drivePID(855, 10); //drive to where we should be for triple line
     turnPID(-132); //turn to face triple line
     //drivePID(400);
     //drivePID(400); //was used for picking up tripple line, wasn't as consistent as driving slowly
     //drivePID(400);
-    drivePID(1300, 5); //drive and intake triple line
+    drivePID(1275, 6); //drive and intake triple line
     wait(1, sec); //wait to intake third disc
     
-    turnPID(-50); //turn to face high goal
-    drivePID(-100);
+    turnPID(-51); //turn to face high goal
+    drivePID(-140);
     firingCata = true; //fire catapult ------------------------------------------------------------------- 2nd shot
     wait(0.5, sec);
-    drivePID(85);
+    drivePID(127);
     
     turnPID(-135); //turn to face triple stack
-    drivePID(600, 8); //drive slow and knock over triple stack
+    drivePID(550, 8); //drive slow and knock over triple stack
     wait(0.5, sec);
     drivePID(-200, 4);
     wait(0.5, sec);
@@ -1525,76 +1525,79 @@ void autonomous(void) {
     wait(0.5, sec);
     drivePID(200);
     wait(0.6, sec);
-    drivePID(300);
-    turnPID(-180); //turn to face roller
-    drivePID(160); //drive towards and spin roller
-    drivePID(-100); //drive away from roller
+    drivePID(365);
+    turnPID(-184, 11, 0.12); //turn to face roller
+    Intake.spin(forward, 70, vex::velocityUnits::pct);
+    drivePID(157); //drive towards and spin roller
+    drivePID(-150); //drive away from roller
+    Intake.spin(forward, 100, vex::velocityUnits::pct);
     //drivePID(500, 4); //drive at a moderate speed to intake discs
     wait(1, sec); //wait to intake discs
 
-    turnPID(-87, 12, 0.12); //turn to face high goal
-    drivePID(-760); //drive towards high goal
-    turnPID(-100); //turn to face high goal
+    turnPID(-91);//, 12, 0.12); //turn to face high goal
+    drivePID(-780); //drive towards high goal
+    turnPID(-100, 12, 0.12); //turn to face high goal
     wait(0.5, sec);
     firingCata = true; //fire catapult ------------------------------------------------------------------- 3rd shot
     wait(0.5, sec);
-    turnPID(-87);
+    turnPID(-93);
 
-    drivePID(800); //drive towards 4th tripple stack
-    turnPID(-45, 6); //turn to face tripple stack
-    drivePID(200); //knock over tripple stack
+    drivePID(375); //drive towards 4th tripple stack
+    turnPID(-45, 8); //turn to face tripple stack
+    drivePID(450); //knock over tripple stack
     wait(0.5, sec);
     drivePID(-200, 4); //drive back
     wait(0.5, sec);
-    drivePID(200); //intake 
+    drivePID(300); //intake 
     wait(0.5, sec);
-    drivePID(200); //intake
+    drivePID(300); //intake
     wait(0.6, sec);
-    drivePID(-300); //drive back to 4 tiles
+    drivePID(-200); //drive back to 4 tiles
     
-    turnPID(-90); //turn towards roller
-    Intake.spin(forward, 70, vex::velocityUnits::pct);
-    drivePID(380); //drive to and spin roller
+    turnPID(-95, 12, 0.13); //turn towards roller
+    Intake.spin(forward, 100, vex::velocityUnits::pct);
+    drivePID(470); //drive to and spin roller
     wait(0.2, sec);
     drivePID(-100); //drive away from roller
+    Intake.spin(forward, 100, vex::velocityUnits::pct);
 
-    turnPID(-181); //turn towards high goal
-    drivePID(-990); //drive towards high goal
-    turnPID(-170, 12, 1.3); //turn to face high goal
+    turnPID(-184); //turn towards high goal
+    drivePID(-800, 9); //drive towards high goal
+    turnPID(-170, 12, 0.13); //turn to face high goal
     wait(0.5, sec);
     firingCata = true; //fire catapult ------------------------------------------------------------------- 4th shot
     wait(0.5, sec);
 
-    drivePID(845); //drive to where we should be for tripple line
-    turnPID(45, 8); //turn to face tripple line
+    drivePID(775); //drive to where we should be for tripple line
+    turnPID(44, 5); //turn to face tripple line
     wait(0.2, sec);
-    drivePID(1300); //drive and intake tripple line
+    drivePID(1300, 5); //drive and intake tripple line
     
-    turnPID(135); //turn to face high goal
+    turnPID(130); //turn to face high goal
     drivePID(-100); //drive towards high goal
     firingCata = true; //fire catapult ------------------------------------------------------------------- 5th shot
     wait(0.5, sec);
-    drivePID(-85); //drive away from high goal
+    drivePID(85); //drive away from high goal
 
-    turnPID(45); //turn to face tripple stack
+    turnPID(44); //turn to face tripple stack
     drivePID(600, 8); //drive slow and knock over triple stack
     wait(0.5, sec);
     drivePID(-200, 4);
     wait(0.5, sec);
     drivePID(200);
     wait(0.5, sec);
-    drivePID(200);
+    drivePID(400);
     wait(0.6, sec); 
-    turnPID(90); //turn towards high goal
-    drivePID(-760); //drive towards high goal
-    turnPID(80, 12, 1.3); //turn to face high goal
+    turnPID(95); //turn towards high goal
+    drivePID(-730); //drive towards high goal
+    //turnPID(90, 12, 0.13); //turn to face high goal
     firingCata = true; //fire catapult ------------------------------------------------------------------- 6th shot
     wait(0.5, sec);
     
-    turnPID(90, 12, 1.3); //turn to face 4 tiles
-    drivePID(800);
+    turnPID(87, 12, 0.13); //turn to face 4 tiles
+    drivePID(1200);
 
-    turnPID(45); //turn to face field
+    turnPID(45, 12, 0.15); //turn to face field
     //drivePID(100);
     ExpansionPnuematics1.off(); //fire expansion
     ExpansionPnuematics2.off(); //fire expansion
