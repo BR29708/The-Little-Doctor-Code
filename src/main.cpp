@@ -26,8 +26,8 @@
 // Color                optical       17              
 // VisionSensor         vision        16              
 // CataPistons          led           D               
-// EncoderL             encoder       E, F            
-// EncoderR             encoder       G, H            
+// EncoderL             encoder       C, D            
+// EncoderR             encoder       E, F            
 // Expander13           triport       13              
 // EncoderB             encoder       A, B            
 // ---- END VEXCODE CONFIGURED DEVICES ----
@@ -47,7 +47,7 @@ const double toRadians = PI / 180; //Converts to Radians
 const double toDegrees = 180 / PI; //Converts to Degrees
 const double TrackingCircumference = 4 * PI; //Calculates Tracking Wheel Circumference
 const double leftOffset = 5; //Subject to change when we add tracking wheels, Distance from Tracking Center to Left Tracking Wheel
-const double rightOffset = 5; //Subject to change when we add tracking wheels, Distance from Tracking Center to Right Tracking Wheel
+const double rightOffset = 0; //Subject to change when we add tracking wheels, Distance from Tracking Center to Right Tracking Wheel
 const double backOffset = 5; //Subject to change when we add tracking wheels, Distance from Tracking Center to Back Tracking Wheel
 
 
@@ -123,7 +123,7 @@ double distanceTo (double x1, double y1){ //Calculates Distance Between Current 
 }
 
 double getRightReading(){ //gets the reading of the right encoder
-  return degreesToInches(EncoderR);
+  return degreesToInches(EncoderR.position(degrees));
 }
 
 double getLeftReading(){ //gets the reading of the left encoder
@@ -136,12 +136,12 @@ double getBackReading(){ //gets the reading of the back encoder
 
 bool isStopped(){ //Checks to see if Robot isn't moving: Makes sure it doens't run into walls (COULD ENCOUNTER PROBLEMS!)
 
-  if (fabs(deltaR) < 0.001 && fabs(deltaL) < 0.001){
+  if (fabs(deltaR) <= 2 && fabs(deltaL) <= 2){
     stopTime += 1; //increases stop time for every cycle tha the encoders are not changing values
   } else {
     stopTime = 0;
   }
-  if (stopTime == 50){ //if stopped for 50 ticks...
+  if (stopTime >= 50){ //if stopped for 50 ticks...
     return true; //return true, stop motors
   } else { //else...
     return false; //return false, continue motors
@@ -186,24 +186,24 @@ double getDegToPosition(double x, double y){ //Find Angle That points to the des
 //Movement Functions
 
 void leftDrive(double power) { //drive the left motors based on the power variable
-  LBMotor.spin(fwd, power, pct);
-  LMMotor.spin(fwd, power, pct);
-  LFMotor.spin(fwd, power, pct);
+  LBMotor.spin(reverse, power, voltageUnits::volt);
+  LMMotor.spin(reverse, power, voltageUnits::volt);
+  LFMotor.spin(reverse, power, voltageUnits::volt);
 }
 
 void rightDrive(double power){ //drive the right motors based on the power variable
-  RMMotor.spin(fwd, power, pct);
-  RFMotor.spin(fwd, power, pct);
-  RBMotor.spin(fwd, power, pct);
+  RMMotor.spin(reverse, power, voltageUnits::volt);
+  RFMotor.spin(reverse, power, voltageUnits::volt);
+  RBMotor.spin(reverse, power, voltageUnits::volt);
 }
 
 void drive(double power){ //drive both right and left motors based on the power variable
-  RMMotor.spin(fwd, power, pct);
-  RFMotor.spin(fwd, power, pct);
-  RBMotor.spin(fwd, power, pct);
-  LBMotor.spin(fwd, power, pct);
-  LMMotor.spin(fwd, power, pct);
-  LFMotor.spin(fwd, power, pct);
+  RMMotor.spin(reverse, power, voltageUnits::volt);
+  RFMotor.spin(reverse, power, voltageUnits::volt);
+  RBMotor.spin(reverse, power, voltageUnits::volt);
+  LBMotor.spin(reverse, power, voltageUnits::volt);
+  LMMotor.spin(reverse, power, voltageUnits::volt);
+  LFMotor.spin(reverse, power, voltageUnits::volt);
 }
 
 void stopDrive(){ //stop the drive and set all motors to coast
@@ -444,12 +444,12 @@ float heading = 0;
 
 float fwdPIDCycle(double targetDist, double maxSpeed){
 
-  float kP = 2;
-  float kI = 0.01;
-  float kD = 1;
+  float kP = 0.27;
+  float kI = 0.001; //0.000000001
+  float kD = 0.01; //0.031
 
   float integralPowerLimit = 45 / kD;
-  float integralActiveZone = 10;
+  float integralActiveZone = 600;
   float errorThreshold = 0.5;
 
   float speed = 0;
@@ -476,7 +476,15 @@ float fwdPIDCycle(double targetDist, double maxSpeed){
       speed = -2;
     }
 
-
+    Brain.Screen.setCursor(7, 2);
+    Brain.Screen.setPenColor(green);
+    Brain.Screen.print("Error = ");
+    Brain.Screen.setCursor(7, 11);
+    Brain.Screen.print(error);
+    Brain.Screen.setCursor(9, 2);
+    Brain.Screen.print("Speed = ");
+    Brain.Screen.setCursor(9, 11);
+    Brain.Screen.print(speed);
 
   } else {
     totalError = 0;
@@ -491,11 +499,11 @@ float fwdPIDCycle(double targetDist, double maxSpeed){
 
 }
 
-float turnPIDCycle(double targetDeg, double maxSpeed){
+float turnPIDCycle(double targetDeg, double maxSpeed, double kp = 0.1){
 
-  float kP = 2;
-  float kI = 0.01;
-  float kD = 1;
+  float kP = kp;
+  float kI = 0.000001;;
+  float kD = 0.08;
 
   float integralPowerLimit = 45 / kD;
   float integralActiveZone = 10;
@@ -504,7 +512,7 @@ float turnPIDCycle(double targetDeg, double maxSpeed){
   float speed = 0;
   float error = targetDeg - getRobotRotation();
 
-  if (error > errorThreshold){ //Check if error is over the threshold
+  if (fabs(error) > errorThreshold){ //Check if error is over the threshold
 
     if (fabs(error) < integralActiveZone){
       totalError += error;
@@ -525,13 +533,27 @@ float turnPIDCycle(double targetDeg, double maxSpeed){
       speed = -2;
     }
 
+    speed = speed * -1;
 
+    
 
   } else {
     totalError = 0;
     der = 0;
     speed = 0;
   }
+
+  Brain.Screen.setCursor(7, 2);
+  Brain.Screen.setPenColor(green);
+  Brain.Screen.print("Error = ");
+  Brain.Screen.setCursor(7, 11);
+  Brain.Screen.print(error);
+  Brain.Screen.setCursor(9, 2);
+  Brain.Screen.print("Speed = ");
+  Brain.Screen.setCursor(9, 11);
+  Brain.Screen.print(speed);
+
+
   
   prevError = error;
 
@@ -642,50 +664,75 @@ void turnPIDFunction(double targetDeg, double maxSpeed, double timeoutMil = -1){
 
 int updatePosition(){ //Updates position and rotation of robot through odometry
 
-  //Get Current Encoder Values in Inches
-  curLeft = getLeftReading();
-  curRight = getRightReading();
-  curBack = getBackReading();
+  while(true){
 
-  //Get Change in Encoder Value since last cycle
-  deltaL = curLeft - prevLeft;
-  deltaR = curRight - prevRight;
-  deltaB = curBack - prevBack;
+    //Get Current Encoder Values in Inches
+    curLeft = getLeftReading();
+    curRight = getRightReading();
+    curBack = getBackReading();
 
-  //Calculate the Angle of the arc traveled
-  deltaTheta = (deltaL - deltaR) / (leftOffset + rightOffset);
+    //Get Change in Encoder Value since last cycle
+    deltaL = curLeft - prevLeft;
+    deltaR = curRight - prevRight;
+    deltaB = curBack - prevBack;
 
-  if (deltaTheta == 0){ //If the robot has not rotated...
+    //Calculate the Angle of the arc traveled
+    deltaTheta = getRobotRadians() - prevGyroRadians;//(deltaL - deltaR) / (leftOffset + rightOffset);
 
-    deltaDistance = (deltaL + deltaR) / 2; //Average change in encoder values
+    if (deltaTheta == 0){ //If the robot has not rotated...
+
+      deltaDistance = deltaR;//(deltaL + deltaR) / 2; //Average change in encoder values
     
-  } else {
+    } else {
 
-    double radius = deltaR/deltaTheta - rightOffset; //Find radius of arc by adding right offset to right encoder radius
+      double radius = deltaR/deltaTheta - rightOffset; //Find radius of arc by adding right offset to right encoder radius
 
-    deltaDistance = 2 * radius * (sin(deltaTheta/2)); //Find Chord Length from start of robot center to end of robot center
+      deltaDistance = 2 * radius * (sin(deltaTheta/2)); //Find Chord Length from start of robot center to end of robot center
+
+    }
+
+    absoluteAngleOfMovement = prevGyroRadians + deltaTheta/2; //Caluclate Angle between last and current position 
+
+    //Calculate Change in Global Position //Convert Polar Coordinates (radius, angle) to Cartesian Coordinates (x, y)
+    deltaX = deltaDistance * cos(absoluteAngleOfMovement); 
+    deltaY = deltaDistance * sin(absoluteAngleOfMovement);
+
+    //Calculates Global Change by Summing all changes
+    globalX += deltaX;
+    globalY += deltaY;
+
+    totalDistance += deltaDistance; //total Distance traveled since last reset
+
+    //Save Previous Values
+    prevLeft = curLeft;
+    prevRight = curRight;
+    prevBack = curBack;
+    prevGyroRadians = getRobotRadians();
+
+    Brain.Screen.clearScreen();
+
+    Brain.Screen.setCursor(1, 2);
+    Brain.Screen.setPenColor(purple);
+    Brain.Screen.print("currentPos");
+
+    Brain.Screen.setPenColor(purple);
+    Brain.Screen.setCursor(2, 2);
+    Brain.Screen.print(globalX);
+    Brain.Screen.setCursor(2, 9);
+    Brain.Screen.print(",");
+    Brain.Screen.setCursor(2, 11);
+    Brain.Screen.print(globalY);
+
+    Brain.Screen.setPenColor(red);
+    Brain.Screen.setCursor(4, 2);
+    Brain.Screen.print("EncoderPos");
+    Brain.Screen.setCursor(5, 2);
+    Brain.Screen.print(getRightReading());//getRightReading());
 
   }
 
-  absoluteAngleOfMovement = prevGyroRadians + deltaTheta/2; //Caluclate Angle between last and current position 
-
-  //Calculate Change in Global Position //Convert Polar Coordinates (radius, angle) to Cartesian Coordinates (x, y)
-  deltaX = deltaDistance * cos(absoluteAngleOfMovement); 
-  deltaY = deltaDistance * sin(absoluteAngleOfMovement);
-
-  //Calculates Global Change by Summing all changes
-  globalX += deltaX;
-  globalY += deltaY;
-
-  totalDistance += deltaDistance; //total Distance traveled since last reset
-
-  //Save Previous Values
-  prevLeft = curLeft;
-  prevRight = curRight;
-  prevBack = curBack;
-  prevGyroRadians = getRobotRadians();
-
   return 1;
+
 }
 
 void setTarget(double x, double y){
@@ -695,7 +742,7 @@ void setTarget(double x, double y){
 
 }
 
-void turnToTarget(double maxTurnSpeed){ //Turn to Face Target Position
+void turnToTarget(double maxTurnSpeed, double kp = 0.1){ //Turn to Face Target Position
 
   double turnSpeed = 1;
 
@@ -703,10 +750,13 @@ void turnToTarget(double maxTurnSpeed){ //Turn to Face Target Position
 
     targetDeg = getDegToPosition(targetX, targetY);
 
-    turnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed);
+    turnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed, kp);
 
     leftDrive(-turnSpeed);
     rightDrive(turnSpeed);
+
+    Brain.Screen.setCursor(5, 20);
+    Brain.Screen.print("hello");
 
     task::sleep(5);
 
@@ -715,7 +765,30 @@ void turnToTarget(double maxTurnSpeed){ //Turn to Face Target Position
 
 }
 
-void moveToTarget(double maxFwdSpeed, double maxTurnSpeed){ //Turn to and Move to position simultaneously
+void turnToTargetRev(double maxTurnSpeed, double kp = 0.1){ //Turn to Face Target Position
+
+  double turnSpeed = 1;
+
+  while (turnSpeed != 0){
+
+    targetDeg = angleWrap(getDegToPosition(targetX, targetY) + 180);
+
+    turnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed, kp);
+
+    leftDrive(-turnSpeed);
+    rightDrive(turnSpeed);
+
+    Brain.Screen.setCursor(5, 20);
+    Brain.Screen.print("hello");
+
+    task::sleep(5);
+
+  }
+  stopDrive();
+
+}
+
+void moveToTarget(double maxFwdSpeed, double maxTurnSpeed, double turnInfluence = 0.7){ //Turn to and Move to position simultaneously
 
   totalDistance = 0;
   stopTime = 0;
@@ -725,20 +798,23 @@ void moveToTarget(double maxFwdSpeed, double maxTurnSpeed){ //Turn to and Move t
 
   targetDistance = distanceTo(targetX, targetY);
 
-  while (curFwdSpeed != 0 && targetDistance > 3 && !isStopped()) { //Turns only when farther than a few inches to prevent donuts. isStopped could be faulty
+  while (curFwdSpeed != 0 && targetDistance > 3){ //&& !isStopped()) { //Turns only when farther than a few inches to prevent donuts. isStopped could be faulty
 
     targetDistance = distanceTo(targetX, targetY);
     targetDeg = getDegToPosition(targetX, targetY);
 
     curFwdSpeed = fwdPIDCycle(targetDistance, maxFwdSpeed);
-    curTurnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed);
+    curTurnSpeed = (turnPIDCycle(targetDeg, maxTurnSpeed)) * turnInfluence;
+
+    Brain.Screen.setCursor(11, 2);
+    Brain.Screen.print(curFwdSpeed);
 
     leftDrive(curFwdSpeed - curTurnSpeed);
     rightDrive(curFwdSpeed + curTurnSpeed);
 
     task::sleep(5);
   }
-  while (curFwdSpeed != 0 && !isStopped()) { //Only Drive Forward after a few inches
+  while (curFwdSpeed != 0){ //&& !isStopped()) { //Only Drive Forward after a few inches
 
     targetDistance = distanceTo(targetX, targetY);
     
@@ -755,7 +831,7 @@ void moveToTarget(double maxFwdSpeed, double maxTurnSpeed){ //Turn to and Move t
 
 }
 
-void moveToTargetRev(double maxFwdSpeed, double maxTurnSpeed){ //Turn to and Move to position simultaneously
+void moveToTargetRev(double maxFwdSpeed, double maxTurnSpeed, double turnInfluence = 0.7){ //Turn to and Move to position simultaneously
 
   totalDistance = 0;
   stopTime = 0;
@@ -771,8 +847,8 @@ void moveToTargetRev(double maxFwdSpeed, double maxTurnSpeed){ //Turn to and Mov
     targetDeg = getDegToPosition(targetX, targetY);
     targetDeg = angleWrap(targetDeg - 180);
 
-    curFwdSpeed = fwdPIDCycle(targetDistance, maxFwdSpeed);
-    curTurnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed);
+    curFwdSpeed = (fwdPIDCycle(targetDistance, maxFwdSpeed)) * -1;
+    curTurnSpeed = (turnPIDCycle(targetDeg, maxTurnSpeed)) * turnInfluence;
 
     leftDrive(curFwdSpeed - curTurnSpeed);
     rightDrive(curFwdSpeed + curTurnSpeed);
@@ -783,7 +859,7 @@ void moveToTargetRev(double maxFwdSpeed, double maxTurnSpeed){ //Turn to and Mov
 
     targetDistance = -distanceTo(targetX, targetY);
     
-    curFwdSpeed = fwdPIDCycle(targetDistance, maxFwdSpeed);
+    curFwdSpeed = (fwdPIDCycle(targetDistance, maxFwdSpeed)) * -1;
     curTurnSpeed = 0;
 
     leftDrive(curFwdSpeed);
@@ -796,7 +872,7 @@ void moveToTargetRev(double maxFwdSpeed, double maxTurnSpeed){ //Turn to and Mov
 
 }
 
-void passTarget (double maxFwdSpeed, double maxTurnSpeed) { //Passes Target: Allows for more control of path
+void passTarget (double maxFwdSpeed, double maxTurnSpeed, double turnInfluence = 0.7) { //Passes Target: Allows for more control of path
 
   totalDistance = 0;
 
@@ -820,7 +896,7 @@ void passTarget (double maxFwdSpeed, double maxTurnSpeed) { //Passes Target: All
     if (fabs(targetDistance) > 2){
 
       targetDeg = getDegToPosition(targetX, targetY);
-      curTurnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed);
+      curTurnSpeed = (turnPIDCycle(targetDeg, maxTurnSpeed)) * turnInfluence;
 
     } else {
 
@@ -837,7 +913,7 @@ void passTarget (double maxFwdSpeed, double maxTurnSpeed) { //Passes Target: All
 
 }
 
-void passTargetRev (double maxFwdSpeed, double maxTurnSpeed) { //Passes Target: Allows for more control of path
+void passTargetRev (double maxFwdSpeed, double maxTurnSpeed, double turnInfluence = 0.7) { //Passes Target: Allows for more control of path
 
   totalDistance = 0;
 
@@ -862,7 +938,7 @@ void passTargetRev (double maxFwdSpeed, double maxTurnSpeed) { //Passes Target: 
 
       targetDeg = getDegToPosition(targetX, targetY);
       targetDeg = angleWrap(targetDeg - 180);
-      curTurnSpeed = turnPIDCycle(targetDeg, maxTurnSpeed);
+      curTurnSpeed = (turnPIDCycle(targetDeg, maxTurnSpeed)) * turnInfluence;
 
     } else {
 
@@ -870,8 +946,8 @@ void passTargetRev (double maxFwdSpeed, double maxTurnSpeed) { //Passes Target: 
 
     }
 
-    leftDrive(maxFwdSpeed - curTurnSpeed);
-    rightDrive(maxFwdSpeed + curTurnSpeed);
+    leftDrive((maxFwdSpeed * -1) - curTurnSpeed);
+    rightDrive((maxFwdSpeed * -1) + curTurnSpeed);
 
     task::sleep(5);
 
@@ -884,23 +960,23 @@ void passTargetRev (double maxFwdSpeed, double maxTurnSpeed) { //Passes Target: 
 //---------------------------------------------- OLD PID FUNCTIONS -------------------------------------------------------//
 
 //drivePID Tuning Values
-double kP = 0.03; //tuning value for potential 0.05
-double kI = 0.000000001; //tuning value for integral 0.0000001
-double kD = 0.031; //tuning value for derivitive 0.0004
+double kP = 0.03; //tuning value for proportional
+double kI = 0.000000001; //tuning value for integral 
+double kD = 0.031; //tuning value for derivitive 
 
 //stopping values
 double lastPosition;
 double stopTimer;
 
 //TurnPID Tuning Values
-double turnkP = 0.1; //0.1
-double turnkI = 0.000001; //0.01 //0.00000000000000000001 (previous value)
-double turnkD = 0.05; //0.01
+double turnkP = 0.1; 
+double turnkI = 0.000001; 
+double turnkD = 0.05; 
 
 //driftPID Tuning Values
-double dkP = 0.004; //0.009
-double dkI = 0; //0.00000000001
-double dkD = 0.015; //0.01
+double dkP = 0.004; 
+double dkI = 0; 
+double dkD = 0.015;
 
 float error; //Sensor Value - Desired Value : Position
 
@@ -1314,13 +1390,13 @@ void autonomous(void) {
   //vex::task driveForward(drivePID);
 
   vex::task t1(cataFire);
-  vex::task t2(updatePosition);
+  vex::thread t2(updatePosition);
 
   //rollerSide = true;
   bothSides = false;
   skills = true;
 
-  if (rollerSide == true){ //Roller Side Auton
+  if (rollerSide == true){ //Roller Side Auton -----------------------------------------------------------------------------------------------------------------------------------------------
     if (LimitSwitch.pressing() == false){
       firingCata = true;
     }
@@ -1392,7 +1468,7 @@ void autonomous(void) {
     Intake.stop();
     wait(1, sec);
     CataPistons.off();
-  } else if (bothSides == true){ //Both Sides Auton
+  } else if (bothSides == true){ //Both Sides Auton -----------------------------------------------------------------------------------------------------------------------------------------------
     
     //drivePID(500);
     //turnPID(90);
@@ -1464,7 +1540,12 @@ void autonomous(void) {
     drivePID(200);
     turnPID(-90);
     //drivePID(-50, 4);
-  } else if (skills == true) { //Skills Auton
+  } else if (skills == true) { //Skills Auton -----------------------------------------------------------------------------------------------------------------------------------------------
+    
+    EncoderR.setPosition(0, degrees);
+    globalX = 8;
+    globalY = 30;
+
     if (LimitSwitch.pressing() == false){
       firingCata = true;
     }
@@ -1474,8 +1555,24 @@ void autonomous(void) {
     drivePID(180, 11, 145); //Drive to roller
     wait(0.2, sec); //wait for roller to spin
     Intake.spin(forward, 40, vex::velocityUnits::pct);
-    drivePID(-100);
-    drivePID(200, 11, 145); //Drive to roller
+    drivePID(-50);
+    drivePID(150, 11, 95); //Drive to roller
+
+    setTarget(40, -40);
+    moveToTarget(12, 12, 0.4);
+    setTarget(108, 12);
+    turnToTarget(12);
+    setTarget(45, -16);
+    passTarget(12, 12);
+    setTarget(0, 0);
+    moveToTarget(12, 12);
+    //setTarget(-24, 120);
+    //turnToTarget(12);
+
+    wait(100, sec); 
+
+
+    
     wait(0.2, sec);
     drivePID(-150); //Drive away from roller
     Intake.spin(forward, 100, vex::velocityUnits::pct); //Spin intake at full speed to intake disc
@@ -1606,7 +1703,7 @@ void autonomous(void) {
 
     */
 
-  } else { //Non Roller Side Auton
+  } else { //Non Roller Side Auton ----------------------------------------------------------------------------------------------------------------------------------------------------
     if (LimitSwitch.pressing() == false){
       firingCata = true;
     }
