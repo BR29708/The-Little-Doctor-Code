@@ -442,7 +442,7 @@ float totalError = 0; //
 float der = 0;
 float heading = 0;
 
-float fwdPIDCycle(double targetDist, double maxSpeed){
+float fwdPIDCycle(double targetDist, double maxSpeed, double errorThreshold = 0.5){
 
   float kP = 0.27;
   float kI = 0.001; //0.000000001
@@ -450,7 +450,7 @@ float fwdPIDCycle(double targetDist, double maxSpeed){
 
   float integralPowerLimit = 45 / kD;
   float integralActiveZone = 600;
-  float errorThreshold = 0.5;
+  //float errorThreshold = 0.5;
 
   float speed = 0;
   float error = targetDist;
@@ -788,7 +788,7 @@ void turnToTargetRev(double maxTurnSpeed, double kp = 0.1){ //Turn to Face Targe
 
 }
 
-void moveToTarget(double maxFwdSpeed, double maxTurnSpeed, double turnInfluence = 0.7){ //Turn to and Move to position simultaneously
+void moveToTarget(double maxFwdSpeed, double maxTurnSpeed, double turnInfluence = 0.7, double errorThreshold = 0.5){ //Turn to and Move to position simultaneously
 
   totalDistance = 0;
   stopTime = 0;
@@ -803,7 +803,7 @@ void moveToTarget(double maxFwdSpeed, double maxTurnSpeed, double turnInfluence 
     targetDistance = distanceTo(targetX, targetY);
     targetDeg = getDegToPosition(targetX, targetY);
 
-    curFwdSpeed = fwdPIDCycle(targetDistance, maxFwdSpeed);
+    curFwdSpeed = fwdPIDCycle(targetDistance, maxFwdSpeed, errorThreshold);
     curTurnSpeed = (turnPIDCycle(targetDeg, maxTurnSpeed)) * turnInfluence;
 
     Brain.Screen.setCursor(11, 2);
@@ -831,7 +831,7 @@ void moveToTarget(double maxFwdSpeed, double maxTurnSpeed, double turnInfluence 
 
 }
 
-void moveToTargetRev(double maxFwdSpeed, double maxTurnSpeed, double turnInfluence = 0.7){ //Turn to and Move to position simultaneously
+void moveToTargetRev(double maxFwdSpeed, double maxTurnSpeed, double turnInfluence = 0.7, double errorThreshold = 0.5){ //Turn to and Move to position simultaneously
 
   totalDistance = 0;
   stopTime = 0;
@@ -847,7 +847,7 @@ void moveToTargetRev(double maxFwdSpeed, double maxTurnSpeed, double turnInfluen
     targetDeg = getDegToPosition(targetX, targetY);
     targetDeg = angleWrap(targetDeg - 180);
 
-    curFwdSpeed = (fwdPIDCycle(targetDistance, maxFwdSpeed)) * -1;
+    curFwdSpeed = (fwdPIDCycle(targetDistance, maxFwdSpeed, errorThreshold)) * -1;
     curTurnSpeed = (turnPIDCycle(targetDeg, maxTurnSpeed)) * turnInfluence;
 
     leftDrive(curFwdSpeed - curTurnSpeed);
@@ -1543,8 +1543,8 @@ void autonomous(void) {
   } else if (skills == true) { //Skills Auton -----------------------------------------------------------------------------------------------------------------------------------------------
     
     EncoderR.setPosition(0, degrees);
-    globalX = 8;
-    globalY = 30;
+    globalX = 11.75;
+    globalY = 106.5;
 
     if (LimitSwitch.pressing() == false){
       firingCata = true;
@@ -1557,20 +1557,43 @@ void autonomous(void) {
     Intake.spin(forward, 40, vex::velocityUnits::pct);
     drivePID(-50);
     drivePID(150, 11, 95); //Drive to roller
+    drivePID(-100); 
 
-    setTarget(40, -40);
-    moveToTarget(12, 12, 0.4);
-    setTarget(108, 12);
-    turnToTarget(12);
-    setTarget(45, -16);
-    passTarget(12, 12);
-    setTarget(0, 0);
-    moveToTarget(12, 12);
-    //setTarget(-24, 120);
-    //turnToTarget(12);
+    setTarget(21, 120); //set target: 1st disc
+    Intake.spin(forward, 100, vex::velocityUnits::pct);
+    turnToTargetRev(12, 0.13); //turn to face disc
+    passTargetRev(8, 8); //pass and intake disc
 
-    wait(100, sec); 
 
+    setTarget(45, 125); //set new target, in front of 2nd roller
+    moveToTargetRev(12, 12, 0.05); //drive in front of 2nd roller
+    turnPID(90); //turn to face roller
+    drivePID(190); //drive to and spin roller
+    wait(0.2, sec); //wait for roller to be spun
+    drivePID(-100); //drive away from roller
+    
+    turnPID(-8); //turn towards high goal
+    setTarget(78, 130); //set target firing spot
+    moveToTarget(12, 12, 0.1, 5); //drive to firing spot
+    setTarget(112, 125); //set target: high goal
+    turnToTarget(12, 0.25); //turn to face high goal
+    firingCata = true; //fire catapult
+    wait(0.5, sec);
+    
+    setTarget(35, 130); //set target, in front of triple line
+    moveToTargetRev(12, 12, 0.12); //drive to target
+    setTarget(53, 107); //set target: first triple line disc
+    turnToTargetRev(12); //turn to face triple line
+    passTargetRev(6, 6, 0.13); //intake first disc
+    setTarget(65, 95); //set target: second disc
+    passTargetRev(6, 6, 0.13); //intake second disc
+    setTarget(77, 82); //set target: third disc
+    moveToTargetRev(6, 6, 0.13); //drive to and intake final disc
+    setTarget(112, 125); //set target: high goal
+    turnToTarget(12); //turn to face high goal
+
+
+    wait(300, sec);
 
     
     wait(0.2, sec);
