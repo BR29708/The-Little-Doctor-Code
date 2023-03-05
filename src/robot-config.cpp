@@ -29,8 +29,8 @@ signature VisionSensor__RED_GOAL = signature (2, 9513, 10713, 10113, -2341, -138
 vision VisionSensor = vision (PORT16, 150, VisionSensor__BLUE_GOAL, VisionSensor__RED_GOAL);
 /*vex-vision-config:end*/
 led CataPistons = led(Brain.ThreeWirePort.D);
-encoder EncoderL = encoder(Brain.ThreeWirePort.E);
-encoder EncoderR = encoder(Brain.ThreeWirePort.G);
+encoder EncoderL = encoder(Expander13.C);
+encoder EncoderR = encoder(Brain.ThreeWirePort.E);
 encoder EncoderB = encoder(Expander13.A);
 
 // VEXcode generated functions
