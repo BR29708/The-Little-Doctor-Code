@@ -30,7 +30,7 @@ extern vision VisionSensor;
 extern led CataPistons;
 extern encoder EncoderL;
 extern encoder EncoderR;
-extern triport Expander13;
+extern triport Expander20;
 extern encoder EncoderB;
 
 /**

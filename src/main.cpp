@@ -14,9 +14,9 @@
 // RMMotor              motor         10              
 // RFMotor              motor         9               
 // RBMotor              motor         21              
-// LMMotor              motor         1               
+// LMMotor              motor         4               
 // LFMotor              motor         2               
-// LBMotor              motor         14              
+// LBMotor              motor         13              
 // Intake               motor         8               
 // Cata                 motor         15              
 // ExpansionPnuematics1 led           A               
@@ -28,7 +28,7 @@
 // CataPistons          led           D               
 // EncoderL             encoder       C, D            
 // EncoderR             encoder       E, F            
-// Expander13           triport       13              
+// Expander20           triport       20              
 // EncoderB             encoder       A, B            
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
@@ -441,10 +441,11 @@ float prevError = 0; //Error from previous PID Cycle
 float totalError = 0; //
 float der = 0;
 float heading = 0;
+int stopped = 0;
 
-float fwdPIDCycle(double targetDist, double maxSpeed, double errorThreshold = 0.5){
+float fwdPIDCycle(double targetDist, double maxSpeed, double errorThreshold = 0.5, double kP = 0.27){
 
-  float kP = 0.27;
+  //float kP = kp;
   float kI = 0.001; //0.000000001
   float kD = 0.01; //0.031
 
@@ -455,7 +456,7 @@ float fwdPIDCycle(double targetDist, double maxSpeed, double errorThreshold = 0.
   float speed = 0;
   float error = targetDist;
 
-  if (error > errorThreshold){ //Check if error is over the threshold
+  if (fabs(error) > errorThreshold){ //Check if error is over the threshold
 
     if (fabs(error) < integralActiveZone){
       totalError += error;
@@ -486,10 +487,36 @@ float fwdPIDCycle(double targetDist, double maxSpeed, double errorThreshold = 0.
     Brain.Screen.setCursor(9, 11);
     Brain.Screen.print(speed);
 
+    if (fabs(getRightReading() - prevRight) < 0.001){
+
+      if (stopped >= 500){
+
+        speed = 0;
+        der = 0;
+        totalError = 0; 
+        stopped = 0;
+
+      } else {
+
+        stopped = stopped + 1;
+
+      }
+
+    } else {
+      
+      stopped = 0;
+
+    }
+
   } else {
     totalError = 0;
     der = 0;
     speed = 0;
+
+    Brain.Screen.setCursor(7, 2);
+    Brain.Screen.setPenColor(green);
+    Brain.Screen.print("Finished");
+
   }
 
   prevError = error;
@@ -543,14 +570,14 @@ float turnPIDCycle(double targetDeg, double maxSpeed, double kp = 0.1){
     speed = 0;
   }
 
-  Brain.Screen.setCursor(7, 2);
+  Brain.Screen.setCursor(7, 15);
   Brain.Screen.setPenColor(green);
   Brain.Screen.print("Error = ");
-  Brain.Screen.setCursor(7, 11);
+  Brain.Screen.setCursor(7, 24);
   Brain.Screen.print(error);
-  Brain.Screen.setCursor(9, 2);
+  Brain.Screen.setCursor(9, 15);
   Brain.Screen.print("Speed = ");
-  Brain.Screen.setCursor(9, 11);
+  Brain.Screen.setCursor(9, 24);
   Brain.Screen.print(speed);
 
 
@@ -788,7 +815,7 @@ void turnToTargetRev(double maxTurnSpeed, double kp = 0.1){ //Turn to Face Targe
 
 }
 
-void moveToTarget(double maxFwdSpeed, double maxTurnSpeed, double turnInfluence = 0.7, double errorThreshold = 0.5){ //Turn to and Move to position simultaneously
+void moveToTarget(double maxFwdSpeed, double maxTurnSpeed, double turnInfluence = 0.7, double errorThreshold = 0.5, double kp = 0.27){ //Turn to and Move to position simultaneously
 
   totalDistance = 0;
   stopTime = 0;
@@ -803,7 +830,7 @@ void moveToTarget(double maxFwdSpeed, double maxTurnSpeed, double turnInfluence 
     targetDistance = distanceTo(targetX, targetY);
     targetDeg = getDegToPosition(targetX, targetY);
 
-    curFwdSpeed = fwdPIDCycle(targetDistance, maxFwdSpeed, errorThreshold);
+    curFwdSpeed = fwdPIDCycle(targetDistance, maxFwdSpeed, errorThreshold, kp);
     curTurnSpeed = (turnPIDCycle(targetDeg, maxTurnSpeed)) * turnInfluence;
 
     Brain.Screen.setCursor(11, 2);
@@ -831,7 +858,7 @@ void moveToTarget(double maxFwdSpeed, double maxTurnSpeed, double turnInfluence 
 
 }
 
-void moveToTargetRev(double maxFwdSpeed, double maxTurnSpeed, double turnInfluence = 0.7, double errorThreshold = 0.5){ //Turn to and Move to position simultaneously
+void moveToTargetRev(double maxFwdSpeed, double maxTurnSpeed, double turnInfluence = 0.7, double errorThreshold = 0.5, double kp = 0.27){ //Turn to and Move to position simultaneously
 
   totalDistance = 0;
   stopTime = 0;
@@ -841,17 +868,20 @@ void moveToTargetRev(double maxFwdSpeed, double maxTurnSpeed, double turnInfluen
 
   targetDistance = -distanceTo(targetX, targetY);
 
-  while (curFwdSpeed != 0 && fabs(targetDistance) > 3 && !isStopped()) { //Turns only when farther than a few inches to prevent donuts. isStopped could be faulty
+  while (curFwdSpeed != 0 && fabs(targetDistance) > 3){ //&& !isStopped()) { //Turns only when farther than a few inches to prevent donuts. isStopped could be faulty
 
     targetDistance = -distanceTo(targetX, targetY);
     targetDeg = getDegToPosition(targetX, targetY);
     targetDeg = angleWrap(targetDeg - 180);
 
-    curFwdSpeed = (fwdPIDCycle(targetDistance, maxFwdSpeed, errorThreshold)) * -1;
+    curFwdSpeed = (fwdPIDCycle(targetDistance, maxFwdSpeed, errorThreshold, kp));// * -1;
     curTurnSpeed = (turnPIDCycle(targetDeg, maxTurnSpeed)) * turnInfluence;
 
     leftDrive(curFwdSpeed - curTurnSpeed);
     rightDrive(curFwdSpeed + curTurnSpeed);
+    
+    Brain.Screen.setCursor(11, 2);
+    Brain.Screen.print(targetDistance);
 
     task::sleep(5);
   }
@@ -864,6 +894,9 @@ void moveToTargetRev(double maxFwdSpeed, double maxTurnSpeed, double turnInfluen
 
     leftDrive(curFwdSpeed);
     rightDrive(curFwdSpeed);
+
+    Brain.Screen.setCursor(11, 2);
+    Brain.Screen.print("hello");
 
     task::sleep(5);
 
@@ -1067,7 +1100,7 @@ void drivePID (int desiredValue, int maxSpeed = 12, int errorThreshold = 5){
 
       stopTime ++;
 
-      if (stopTime >= 50){
+      if (stopTime >= 30){
         break;
       }
 
@@ -1232,6 +1265,20 @@ void turnPID (int desiredValue, int maxSpeed = 12, double tkP = 0.1){
       }
     } else {
       ticks = 0;
+
+      if (fabs(gyroPosition - lastPosition) <= 5){
+
+      stopTime ++;
+
+      if (stopTime >= 30){
+        break;
+      }
+
+    } else {
+
+      stopTime = 0;
+
+    }
     }
 
   }
@@ -1277,9 +1324,10 @@ int cataFire(){
       Cata.setStopping(hold);
 
       if (LimitSwitch.pressing() && limitSwitchCan >= 30){
-        limitSwitchCan = 0;
         Cata.stop();
         firingCata = false;
+        limitSwitchCan = 0;
+        
       }
 
     }
@@ -1301,7 +1349,7 @@ void fireCata() {
     Cata.spin(vex::directionType::rev, 100, vex::velocityUnits::pct);
     limitSwitchCan = limitSwitchCan + 1;
 
-    if (LimitSwitch.pressing() && limitSwitchCan >= 60){
+    if (LimitSwitch.pressing() && limitSwitchCan >= 80){
       break;
     }
 
@@ -1400,22 +1448,22 @@ void autonomous(void) {
     if (LimitSwitch.pressing() == false){
       firingCata = true;
     }
-    Intake.spin(forward, 40, vex::velocityUnits::pct); //Spin intake: 60 percent so it doesn't spin past the screws
+    Intake.spin(forward, 20, vex::velocityUnits::pct); //Spin intake: 60 percent so it doesn't spin past the screws
     wait(0.2, sec); //wait for intake to speed up
     drivePID(112, 11, 75); //Drive to roller
     drivePID(-80, 12); //Drive away from roller
     Intake.spin(forward, 100, vex::velocityUnits::pct); //Spin intake at full speed to intake disc
-    turnPID(117, 12); //Turn to face disc on auton line
+    turnPID(117, 12, 0.13); //Turn to face disc on auton line
     drivePID(172, 12, 50); //drive towards disc
     wait(0.5, sec); //delay in order to intake disc
     drivePID(-170, 10); //drive away from disc (-240 before)
-    turnPID(88, 11); //turn to face a bit to the right of the triple stack
+    turnPID(88, 12, 0.13); //turn to face a bit to the right of the triple stack
     Intake.spin(forward, 90, vex::velocityUnits::pct); //Spin intake at full speed to intake disc
     drivePID(-680, 12); //drive towards the low goal
     //Intake.spin(forward, 50, vex::velocityUnits::pct);
-    turnPID(0); //turn
+    turnPID(0, 12, 0.11); //turn
     drivePID(-335, 12); //drive towards high goal
-    turnPID(-34, 12); //turn to face high goal -------------------
+    turnPID(-34, 12, 0.12); //turn to face high goal -------------------
     //drivePID(100);
     //drivePID(-100);
     Intake.spin(reverse, 100, vex::velocityUnits::pct); //Spin intake at full speed to intake disc
@@ -1427,7 +1475,7 @@ void autonomous(void) {
     wait(0.2, sec);
     //drivePID(50); //drive back slightly
     
-    turnPID(41); //turn to face tripple stack
+    turnPID(41, 12, 0.11); //turn to face tripple stack
     CataPistons.off(); 
     if (LimitSwitch.pressing() == false){
       firingCata = true;
@@ -1437,7 +1485,7 @@ void autonomous(void) {
     wait(0.3, sec);
     //Intake.spin(reverse, 90, vex::velocityUnits::pct); //start intake 
     drivePID(-255, 9);
-    turnPID(52);
+    turnPID(52, 12, 0.11);
     //Intake.spin(reverse, 90, vex::velocityUnits::pct); //start intake 
     //wait(0.2, sec);
     Intake.spin(forward, 100, vex::velocityUnits::pct); //start intake 
@@ -1445,11 +1493,11 @@ void autonomous(void) {
     wait(0.3, sec);
     drivePID(275, 7);
     wait(0.1, sec);
-    turnPID(52);
+    turnPID(52, 12, 0.11);
     drivePID(195, 12);
     wait(0.3, sec);
     drivePID(400, 12);
-    turnPID(40);
+    turnPID(40, 12, 0.11);
     //wait(1, sec);
     //drivePID(100);
     wait(0.1, sec);
@@ -1458,7 +1506,7 @@ void autonomous(void) {
     //drivePID(-50);
     //turnPID(25, 10);
     drivePID(-700); //drive back to firing spot
-    turnPID(-31, 11); //turn to face high goal -------------------------------------------------------------
+    turnPID(-31, 12, 0.13); //turn to face high goal -------------------------------------------------------------
     Intake.spin(reverse, 100, vex::velocityUnits::pct);
     drivePID(-50); //drive towards high goal 130 before
     //wait(0.1, sec);
@@ -1542,13 +1590,202 @@ void autonomous(void) {
     //drivePID(-50, 4);
   } else if (skills == true) { //Skills Auton -----------------------------------------------------------------------------------------------------------------------------------------------
     
-    EncoderR.setPosition(0, degrees);
-    globalX = 11.75;
-    globalY = 106.5;
+   
+    //globalX = 11.75;
+    //globalY = 106.5;
 
-    if (LimitSwitch.pressing() == false){
+    //Reset Global Position
+    EncoderR.setPosition(0, degrees);
+    globalX = 8.75;
+    globalY = 88.5;
+
+    if (LimitSwitch.pressing() == false){ //If catapult is not down, spin it down
       firingCata = true;
+      wait(1.2, sec);
     }
+
+    Intake.spin(reverse, 90, vex::velocityUnits::pct); //Spin intake reverse to intake discs from match loader
+    wait(0.7, sec); //wait one second so we can load the discs
+    setTarget(23, 82); //set target: next to high goal
+    moveToTarget(12, 12, 0.8, 10); //move to high goal
+    setTarget(29, 14); //set target: high goal
+    Intake.spin(forward, 100, vex::velocityUnits::pct); //spin intake forward just in case the discs are stuck
+    turnToTarget(12, 0.16); //turn to face high goal
+    firingCata = true; //fire catapult
+    wait(0.3, sec); //wait to make sure catapult fires
+
+    turnPID(5, 12, 0.11); //turn to face match loader
+    Intake.spin(reverse, 90, vex::velocityUnits::pct); //spin intake reverse to intake discs from match loader
+    drivePID(420); //drive to match loader
+    wait(2, sec); //wait so we can load the discs
+    setTarget(23, 82); //set target: next to high goal
+    moveToTarget(12, 12, 0.8, 10); //move to high goal
+    Intake.spin(forward, 100, vex::velocityUnits::pct); //spin intake forward just in case the discs are stuck
+    setTarget(28, 14); //set target: high goal
+    turnToTarget(12, 0.13); //turn to face high goal
+    firingCata = true; //fire catapult 
+    wait(0.3, sec); //wait to make sure catapult fires
+
+    turnPID(2, 12, 0.11); //turn to face match loader
+    Intake.spin(reverse, 90, vex::velocityUnits::pct); //spin intake reverse to intake discs from match loader
+    drivePID(420); //drive to match loader
+    wait(2, sec); //wait so we can load the discs
+    setTarget(23, 80); //set target: next to high goal
+    moveToTarget(12, 12, 0.8, 5); //move to high goal
+    Intake.spin(forward, 100, vex::velocityUnits::pct); //spin intake forward just in case the discs are stuck
+    setTarget(26, 14); //set target: high goal
+    turnToTarget(12, 0.13); //turn to face high goal
+    firingCata = true; //fire catapult
+    wait(0.3, sec); //wait to make sure catapult fires
+
+    setTarget(15, 119); //set target: next to roller
+    moveToTargetRev(12, 12, 0.9, 6); //move to target
+    turnPID(0, 12, 0.13); //turn to face roller
+    
+    Intake.spin(forward, 85, vex::velocityUnits::pct);
+    drivePID(250); //drive and spin roller
+    //wait(0.3, sec); //wait to make sure roller spins
+    drivePID(-100); //drive back
+    turnPID(45, 12, 0.15);
+    drivePID(-200);
+    Intake.spin(forward, 100, vex::velocityUnits::pct);
+    setTarget(27, 118); //set target: triple stack
+    turnToTargetRev(12, 0.13); //turn to face tripe stack
+    //setTarget(35, 123); //set target: triple stack
+    //moveToTargetRev(12, 12, 0.1, 10); //move to triple stack
+    drivePID(275);
+    wait(0.2, sec);
+    drivePID(-300); //drive away from triple stack
+    wait(0.2, sec);
+    drivePID(400); //intake second disc
+    wait(0.2, sec);
+    drivePID(500); //intake third disc
+
+    setTarget(28, 135); //set new target, in front of 2nd roller
+    turnToTargetRev(12, 0.2);
+    moveToTargetRev(12, 12, 0.5, 5); //drive in front of 2nd roller
+    turnPID(90, 12, 0.12); //turn to face roller
+    Intake.spin(forward, 70, vex::velocityUnits::pct);
+    drivePID(350); //drive to and spin roller
+    //wait(0.2, sec); //wait for roller to be spun
+    drivePID(-100); //drive away from roller
+    Intake.spin(forward, 100, vex::velocityUnits::pct);
+    
+    turnPID(-3, 12, 0.13); //turn towards high goal
+    setTarget(80, 145); //set target firing spot
+    moveToTarget(12, 12, 0.05, 16); //drive to firing spot
+    setTarget(112, 139); //set target: high goal
+    turnToTarget(12, 0.25); //turn to face high goal
+    firingCata = true; //fire catapult
+    wait(0.3, sec);
+    
+    setTarget(39, 135); //set target, in front of triple line
+    moveToTargetRev(12, 12, 0.4, 5); //drive to target
+    setTarget(53, 123); //set target: first triple line disc
+    turnToTargetRev(12, 0.12); //turn to face triple line
+    moveToTargetRev(12, 12, 0.1, 7);
+    //turnPID(-130);
+    //drivePID(1200, 6);
+    //passTargetRev(6, 6, 0.1); //intake first disc
+    setTarget(68, 111); //set target: second disc
+    turnToTargetRev(12, 0.26);
+    moveToTargetRev(12, 12, 0.1, 7);
+    //passTargetRev(6, 6, 0.1); //intake second disc
+    setTarget(87, 97); //set target: third disc
+    //turnToTargetRev(12, 0.26);
+    moveToTargetRev(12, 12, 0.3, 7);
+    //moveToTargetRev(6, 6, 0.4, 5); //drive to and intake final disc
+    turnPID(0);
+    setTarget(115, 97);
+    turnToTarget(12, 0.13);
+    moveToTarget(12, 12, 0.8, 5);
+    setTarget(117, 140); //set target: high goal
+    turnToTarget(12, 0.26); //turn to face high goal
+    drivePID(-180);
+    firingCata = true;
+    wait(0.3, sec);
+
+    setTarget(84, 95);
+    turnPID(20, 12, 0.15);
+    moveToTargetRev(12, 12, 0.9, 5);
+    setTarget(97, 78);
+    turnToTargetRev(12, 0.13);
+    //turnPID(-137, 12, 0.11);
+    drivePID(300);
+    wait(0.2, sec);
+    drivePID(-300);
+    wait(0.2, sec);
+    drivePID(300);
+    wait(0.2, sec);
+    drivePID(200);
+
+    setTarget(115, 95);
+    turnToTarget(12, 0.16);
+    moveToTarget(12, 12, 0.8, 5);
+    setTarget(111, 140); //set target: high goal
+    turnToTarget(12, 0.26); //turn to face high goal
+    drivePID(-250);
+    firingCata = true;
+    wait(0.4, sec);
+    drivePID(100);
+
+    setTarget(126, 90);
+    turnToTargetRev(12, 0.18);
+    drivePID(400);
+    //moveToTarget(12, 12, 0.5, 5);
+    Intake.spin(reverse, 90, vex::velocityUnits::pct);
+    wait(2, sec);
+
+    setTarget(105, 100);
+    //turnToTarget(12, 0.14);
+    moveToTarget(12, 12, 0.8, 10);
+    setTarget(110, 140); //set target: high goal
+    turnToTarget(12, 0.26); //turn to face high goal
+    //drivePID(-250);
+    firingCata = true;
+    wait(0.4, sec);
+
+    setTarget(126, 93);
+    //turnToTargetRev(12, 0.18);
+    turnPID(-155, 12, 0.11);
+    drivePID(500);
+    //moveToTarget(12, 12, 0.5, 5);
+    Intake.spin(reverse, 90, vex::velocityUnits::pct);
+    wait(2, sec);
+
+    setTarget(105, 100);
+    //turnToTarget(12, 0.14);
+    moveToTarget(12, 12, 0.8, 10);
+    setTarget(110, 140); //set target: high goal
+    turnToTarget(12, 0.26); //turn to face high goal
+    //drivePID(-250);
+    firingCata = true;
+    wait(0.4, sec);
+
+    setTarget(113, 67);
+    moveToTargetRev(12, 12, 0.6, 5);
+    turnPID(-180);
+    Intake.spin(forward, 65, vex::velocityUnits::pct);
+    drivePID(300);
+    drivePID(-500);
+    turnPID(-90);
+    drivePID(600);
+    wait(0.2, sec);
+
+    setTarget(108, 61);
+    moveToTarget(12, 12, 0.7, 5);
+    turnPID(-135, 12, 0.15);
+
+    ExpansionPnuematics1.off();
+    ExpansionPnuematics2.off();
+
+
+
+
+    wait(100, sec);
+
+
+
     Intake.spin(forward, 100, vex::velocityUnits::pct); //Spin intake: 80 percent so it doesn't spin back to blue
     wait(0.1, sec); //Delay slightly so it gets up to speed
     //drivePID(29);
@@ -1573,24 +1810,27 @@ void autonomous(void) {
     drivePID(-100); //drive away from roller
     
     turnPID(-8); //turn towards high goal
-    setTarget(78, 130); //set target firing spot
+    setTarget(78, 145); //set target firing spot
     moveToTarget(12, 12, 0.1, 5); //drive to firing spot
     setTarget(112, 125); //set target: high goal
-    turnToTarget(12, 0.25); //turn to face high goal
+    turnToTarget(12, 0.15); //turn to face high goal
     firingCata = true; //fire catapult
     wait(0.5, sec);
     
-    setTarget(35, 130); //set target, in front of triple line
+    setTarget(52, 130); //set target, in front of triple line
     moveToTargetRev(12, 12, 0.12); //drive to target
     setTarget(53, 107); //set target: first triple line disc
     turnToTargetRev(12); //turn to face triple line
     passTargetRev(6, 6, 0.13); //intake first disc
-    setTarget(65, 95); //set target: second disc
-    passTargetRev(6, 6, 0.13); //intake second disc
-    setTarget(77, 82); //set target: third disc
-    moveToTargetRev(6, 6, 0.13); //drive to and intake final disc
+    setTarget(70, 95); //set target: second disc
+    passTargetRev(6, 6, 0.5); //intake second disc
+    setTarget(82, 82); //set target: third disc
+    moveToTargetRev(6, 6, 0.5); //drive to and intake final disc
     setTarget(112, 125); //set target: high goal
     turnToTarget(12); //turn to face high goal
+    drivePID(-200);
+    firingCata = true;
+    wait(0.4, sec);
 
 
     wait(300, sec);
@@ -1812,7 +2052,9 @@ void usercontrol(void) {
 
   bool motorCoast = true;
 
-  int intakeSpeed = 100;
+  //int intakeSpeed = 100;
+
+  double turnMultiplier = 1;
 
   //Sensor Variables
   bool bDetect; //Vision Sensor is Detecting Object
@@ -1823,7 +2065,7 @@ void usercontrol(void) {
     Brain.Screen.clearScreen();
 
     //---------------------------------------Drivecode---------------------------------------//
-    double turnVal = Controller1.Axis1.position(pct); //turn value, based on the value of Axis 1 (right stick left and right axis)
+    double turnVal = Controller1.Axis1.position(pct) * turnMultiplier; //turn value, based on the value of Axis 1 (right stick left and right axis)
     double forwardVal = Controller1.Axis3.position(pct) * multiplier; //forward value, based on the value of axis 3 (left stick and up and down axis)
 
     double turnVolts = turnVal * -0.12; //converts axis value into voltage by multiplying it by -0.12 (the motors can go up to 12 volts)
@@ -1865,9 +2107,19 @@ void usercontrol(void) {
 
     }
 
+    if (Controller1.ButtonR1.pressing()){
+
+      turnMultiplier = 0.5;
+
+    } else {
+
+      turnMultiplier = 1;
+
+    }
+
     if (Controller1.ButtonRight.pressing()){
 
-      motorCoast = true;
+      //motorCoast = true;
 
     } else if (Controller1.ButtonDown.pressing()){
 
@@ -1908,11 +2160,19 @@ void usercontrol(void) {
     //---------------------------------------Intake---------------------------------------//
     if (Controller1.ButtonL2.pressing()){ //if button L2 is being pressed...
 
-      Intake.spin(vex::directionType::fwd, intakeSpeed, vex::velocityUnits::pct); //spin the intake forward
+      if (Controller1.ButtonL1.pressing()){
+
+        Intake.spin(vex::directionType::fwd, 60, vex::velocityUnits::pct); //spin the intake forward
+
+      } else{ 
+
+        Intake.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct); //spin the intake forward
+
+      }
 
     } else if (Controller1.ButtonL1.pressing()){ //if button L1 is being pressed...
 
-      Intake.spin(vex::directionType::rev, intakeSpeed, vex::velocityUnits::pct); //spin the intake reverse
+      Intake.spin(vex::directionType::rev, 100, vex::velocityUnits::pct); //spin the intake reverse
 
     } else { //if neither button is being pressed...
 
@@ -1920,13 +2180,13 @@ void usercontrol(void) {
 
     }
 
-    if (Controller1.ButtonX.pressing()){
-      intakeSpeed = 60;
-    }
+    //if (Controller1.ButtonX.pressing()){
+      //intakeSpeed = 60;
+    //}
 
-    if (Controller1.ButtonDown.pressing()){
-      intakeSpeed = 100;
-    }
+    //if (Controller1.ButtonDown.pressing()){
+      //intakeSpeed = 100;
+    //}
 
 
     //---------------------------------------Expansion---------------------------------------//
@@ -1940,7 +2200,7 @@ void usercontrol(void) {
       Controller1.rumble(".");
     }
 
-    if (Controller1.ButtonRight.pressing()){
+    if (Controller1.ButtonX.pressing()){
       ExpansionPnuematics1.on();
       ExpansionPnuematics2.on();
       Controller1.rumble(".");
@@ -1950,7 +2210,7 @@ void usercontrol(void) {
 
     limitSwitchVar = LimitSwitch.pressing();//Variable for Limit Switch
 
-    if (Controller1.ButtonR1.pressing()){
+    if (Controller1.ButtonRight.pressing()){
 
       CataPistons.on();
 
